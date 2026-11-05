@@ -1,0 +1,23 @@
+
+# Build files
+bin/
+obj/
+
+# Visual Studio and VS Code
+.vs/
+.vscode/
+*.user
+
+# Local SQLite database
+App_Data/
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets and environment files
+.env
+.env.*
+secrets.json
+
+# macOS
+.DS_Store
