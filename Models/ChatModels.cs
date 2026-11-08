@@ -6,11 +6,13 @@ namespace StockWiseMcp.Models;
 /// <summary>Body of POST /api/chat.</summary>
 public sealed class ChatRequest
 {
+    public const int MinMessageLength = 2;
     public const int MaxMessageLength = 500;
+    public const string LengthErrorMessage = "Messages must be between 2 and 500 characters long.";
 
-    /// <summary>The user's question. Required, not blank, at most 500 characters.</summary>
+    /// <summary>The user's question. Required, not blank, 2 to 500 characters (checked again after trimming).</summary>
     [Required(ErrorMessage = "Please enter a message.")]
-    [StringLength(MaxMessageLength, ErrorMessage = "Messages can be at most 500 characters long.")]
+    [StringLength(MaxMessageLength, MinimumLength = MinMessageLength, ErrorMessage = LengthErrorMessage)]
     public string? Message { get; set; }
 
     /// <summary>

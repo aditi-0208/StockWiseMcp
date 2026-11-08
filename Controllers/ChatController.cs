@@ -67,13 +67,21 @@ public sealed class ChatController : ControllerBase
         // The antiforgery filter has already run, so the request carries a valid token.
         // [ApiController] then rejects a missing, blank or over-long message with a 400 before
         // this point, so request.Message is a non-empty string here.
+        // The attribute counts surrounding spaces, so " a " would pass it; check the trimmed length too.
+        var message = request.Message!.Trim();
+        if (message.Length < ChatRequest.MinMessageLength)
+        {
+            ModelState.AddModelError(nameof(request.Message), ChatRequest.LengthErrorMessage);
+            return ValidationProblem(ModelState);
+        }
+
         if (!ChatModes.TryParse(request.Mode, out var mode))
         {
             ModelState.AddModelError(nameof(request.Mode), "Mode must be 'guided' or 'ai'.");
             return ValidationProblem(ModelState);
         }
 
-        var result = await _chat.ReplyAsync(request.Message!.Trim(), mode, cancellationToken);
+        var result = await _chat.ReplyAsync(message, mode, cancellationToken);
 
         return Ok(new ChatResponse(result.Reply.Reply, result.Reply.ToolsUsed, result.Mode, result.Notice));
     }
