@@ -1,0 +1,128 @@
+StockWise chat transcript, Production mode, Guided Demo, no AI key, 2026-11-08
+
+=== Q: Look up SW-001 | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "Creator Laptop 14 (SW-001) - Laptops\r\nPortable laptop for creative work.\r\n- Price: $899.00\r\n- In stock: 7 units (reorder level 4) - stock level is healthy\r\n- Location: Aisle A1\r\n- Supplier: Northstar Components (United States, 5-day lead time)\r\n- Value of stock on hand: $6,293.00",
+ "toolsUsed": [
+  "lookup_product"
+ ],
+ "mode": "Guided Demo"
+}
+
+=== Q: How is our inventory doing? | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "Here's the current inventory picture:\r\n- 30 products from 6 suppliers\r\n- 311 units in stock\r\n- Stock value at retail prices: $52,309.00\r\n10 products are at or below the reorder level, and 3 are completely out of stock.",
+ "toolsUsed": [
+  "get_inventory_summary"
+ ],
+ "mode": "Guided Demo"
+}
+
+=== Q: What are the top 5 products by inventory value? | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "Here are the top 5 products by value of stock on hand (price x quantity):\r\n1. Business Laptop 13 (SW-004): $8,792.00 (8 x $1,099.00)\r\n2. Everyday Laptop 15 (SW-002): $7,788.00 (12 x $649.00)\r\n3. Creator Laptop 14 (SW-001): $6,293.00 (7 x $899.00)\r\n4. Gaming Laptop 15 (SW-003): $4,497.00 (3 x $1,499.00)\r\n5. Studio Monitor 27 (SW-006): $2,961.00 (9 x $329.00)",
+ "toolsUsed": [
+  "rank_products_by_value"
+ ],
+ "mode": "Guided Demo"
+}
+
+=== Q: Which products need reordering? | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "10 products are at or below the reorder level (3 completely out of stock):\r\n- Ergonomic Trackball (SW-015): OUT OF STOCK - supplier: Evergreen Peripherals, 7-day lead time\r\n- External HDD 2TB (SW-030): OUT OF STOCK - supplier: Summit Mobile Parts, 6-day lead time\r\n- Ultralight Laptop 14 (SW-005): OUT OF STOCK - supplier: Pacific Circuit Supply, 12-day lead time\r\n- Compact Wireless Keyboard (SW-011): 1 left, reorder level 5 - supplier: Evergreen Peripherals, 7-day lead time\r\n- 4K Webcam (SW-025): 1 left, reorder level 3 - supplier: BrightScreen Electronics, 10-day lead time\r\n- Gaming Mouse (SW-014): 3 left, reorder level 5 - supplier: Evergreen Peripherals, 7-day lead time\r\n- Portable Monitor 16 (SW-008): 2 left, reorder level 4 - supplier: BrightScreen Electronics, 10-day lead time\r\n- USB Podcast Microphone (SW-022): 2 left, reorder level 4 - supplier: Alpine Audio Works, 8-day lead time\r\n- Gaming Laptop 15 (SW-003): 3 left, reorder level 4 - supplier: Northstar Components, 5-day lead time\r\n- Noise-Canceling Headphones (SW-020): 4 left, reorder level 5 - supplier: Alpine Audio Works, 8-day lead time\r\nAsk about a SKU (for example SW-005) for full details.",
+ "toolsUsed": [
+  "get_low_stock_products"
+ ],
+ "mode": "Guided Demo"
+}
+
+=== Q: Show me laptops | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "I found 7 products matching \"laptop\":\r\n- Business Laptop 13 (SW-004): $1,099.00, 8 in stock (Aisle A2)\r\n- Creator Laptop 14 (SW-001): $899.00, 7 in stock (Aisle A1)\r\n- Everyday Laptop 15 (SW-002): $649.00, 12 in stock (Aisle A1)\r\n- Gaming Laptop 15 (SW-003): $1,499.00, 3 in stock (Aisle A2) [low stock]\r\n- Laptop Sleeve 14 (SW-019): $29.00, 15 in stock (Aisle D2)\r\n- Ultralight Laptop 14 (SW-005): $1,199.00, 0 in stock (Warehouse W1) [OUT OF STOCK]\r\n- USB-C Hub 7-Port (SW-018): $59.00, 6 in stock (Aisle D1)\r\nAsk about a SKU (for example SW-001) for full details.",
+ "toolsUsed": [
+  "search_inventory"
+ ],
+ "mode": "Guided Demo"
+}
+
+=== Q: kk | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "I couldn't find any products matching \"kk\". Try a different keyword, such as a product type (laptops, monitors, audio) or a SKU like SW-001.",
+ "toolsUsed": [
+  "search_inventory"
+ ],
+ "mode": "Guided Demo"
+}
+
+=== Q: [500-character message] | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "I couldn't do that: The 'searchText' argument must be at most 100 characters.",
+ "toolsUsed": [
+  "search_inventory"
+ ],
+ "mode": "Guided Demo"
+}
+
+=== Q: Look up SKU SW-999 | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "I couldn't do that: No product with SKU 'SW-999' exists. Try search_inventory to find it by name.",
+ "toolsUsed": [
+  "lookup_product"
+ ],
+ "mode": "Guided Demo"
+}
+
+=== Q: SW-001'; DROP TABLE Products;-- | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "That looks like a database command. I don't run SQL - I can only use a fixed set of read-only inventory tools, so nothing was run. Ask in plain English instead. Try asking about a product (\"Tell me about SW-001\"), a search (\"Do we have any monitors under $200?\"), stock levels (\"Which products need reordering?\"), or type \"help\" for more.",
+ "toolsUsed": [],
+ "mode": "Guided Demo"
+}
+
+=== Q: a | mode: default | csrf token: yes
+HTTP 400
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Message":["Messages must be between 2 and 500 characters long."]},"traceId":"00-cf06c2dc7c0e7d02bf43e73d6a3aecde-180645378e90644f-00"}
+
+=== Q: [501-character message] | mode: default | csrf token: yes
+HTTP 400
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Message":["Messages must be between 2 and 500 characters long."]},"traceId":"00-1b42d20916b2e4a19aed8e41ec76571c-01f93095ea4a9872-00"}
+
+=== Q: [65-character message] | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "I can't change how I work, share my instructions or settings, or run commands - I'm a simple assistant that only answers StockWise inventory questions. Try asking about a product (\"Tell me about SW-001\"), a search (\"Do we have any monitors under $200?\"), stock levels (\"Which products need reordering?\"), or type \"help\" for more.",
+ "toolsUsed": [],
+ "mode": "Guided Demo"
+}
+
+=== Q: What's the weather in Tampa? | mode: default | csrf token: yes
+HTTP 200
+{
+ "reply": "That's outside what I can help with - I only answer questions about StockWise inventory. Try asking about a product (\"Tell me about SW-001\"), a search (\"Do we have any monitors under $200?\"), stock levels (\"Which products need reordering?\"), or type \"help\" for more.",
+ "toolsUsed": [],
+ "mode": "Guided Demo"
+}
+
+=== Q: How is our inventory doing? | mode: ai | csrf token: yes
+HTTP 200
+{
+ "reply": "Here's the current inventory picture:\r\n- 30 products from 6 suppliers\r\n- 311 units in stock\r\n- Stock value at retail prices: $52,309.00\r\n10 products are at or below the reorder level, and 3 are completely out of stock.",
+ "toolsUsed": [
+  "get_inventory_summary"
+ ],
+ "mode": "Guided Demo",
+ "notice": "AI mode isn't set up on this server, so Guided Demo mode answered instead."
+}
+
+=== Q: How is our inventory doing? | mode: default | csrf token: NO
+HTTP 400
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"Bad Request","status":400,"traceId":"00-4ddea6dbb0dc53b6750d6aed103c7934-d3005d507b4dd386-00"}
