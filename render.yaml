@@ -1,0 +1,18 @@
+# Render Blueprint: New + > Blueprint > pick this repo. Free tier, Docker runtime.
+services:
+  - type: web
+    name: stockwise-mcp
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: "8080"
+      # Optional AI mode. Set the value in the Render dashboard only; never commit it.
+      - key: OpenAI__ApiKey
+        sync: false
+      # Optional: a fixed key so outside MCP clients can call /mcp.
+      # If unset, a random key is generated at startup and only the built-in chatbot can use /mcp.
+      - key: StockWise__McpAccessKey
+        sync: false
