@@ -22,8 +22,16 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
+// Access key for /mcp: required outside Development (from StockWise__McpAccessKey, or generated at startup);
+// open in Development so local MCP demos need no setup. The chatbot below sends the key itself.
+builder.Services.AddMcpAccessKey(builder.Configuration, builder.Environment);
+
 // Guided Demo chatbot (no API key). Calls this app's own /mcp endpoint.
 builder.Services.AddGuidedDemoChat();
+
+// Optional AI mode. Only active if an OpenAI key is supplied through user-secrets or the
+// OpenAI__ApiKey environment variable (never in a committed file); otherwise Guided Demo is used.
+builder.Services.AddAiChat(builder.Configuration);
 
 // MCP server exposing the inventory tools over HTTP.
 builder.Services
@@ -48,6 +56,8 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 
+app.UseMcpAccessKey();
+
 app.UseAuthorization();
 
 app.MapStaticAssets();
@@ -57,6 +67,6 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
 
-app.MapMcp("/mcp");
+app.MapMcp(McpAccessKeyExtensions.McpPath);
 
 app.Run();

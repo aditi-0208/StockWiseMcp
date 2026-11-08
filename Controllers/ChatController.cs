@@ -11,16 +11,16 @@ namespace StockWiseMcp.Controllers;
 [Route("api/chat")]
 public sealed class ChatController : ControllerBase
 {
-    private readonly IChatService _chatService;
+    private readonly ChatOrchestrator _chat;
     private readonly IAntiforgery _antiforgery;
     private readonly AntiforgeryOptions _antiforgeryOptions;
 
     public ChatController(
-        IChatService chatService,
+        ChatOrchestrator chat,
         IAntiforgery antiforgery,
         IOptions<AntiforgeryOptions> antiforgeryOptions)
     {
-        _chatService = chatService;
+        _chat = chat;
         _antiforgery = antiforgery;
         _antiforgeryOptions = antiforgeryOptions.Value;
     }
@@ -42,11 +42,17 @@ public sealed class ChatController : ControllerBase
             tokens.RequestToken ?? string.Empty));
     }
 
+    /// <summary>Lists the chat modes and whether each can be used right now (never reveals any secret).</summary>
+    [HttpGet("modes")]
+    [Produces("application/json")]
+    [ProducesResponseType<ChatModesResponse>(StatusCodes.Status200OK)]
+    public ActionResult<ChatModesResponse> GetModes() => Ok(_chat.Describe());
+
     /// <summary>Answers one inventory question.</summary>
     /// <response code="200">The chatbot's answer.</response>
     /// <response code="400">
     /// The anti-forgery token was missing or invalid (empty body), or the message was missing,
-    /// blank or too long (standard problem-details body).
+    /// blank or too long, or the mode was unknown (standard problem-details body).
     /// </response>
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -61,8 +67,14 @@ public sealed class ChatController : ControllerBase
         // The antiforgery filter has already run, so the request carries a valid token.
         // [ApiController] then rejects a missing, blank or over-long message with a 400 before
         // this point, so request.Message is a non-empty string here.
-        var reply = await _chatService.ReplyAsync(request.Message!.Trim(), cancellationToken);
+        if (!ChatModes.TryParse(request.Mode, out var mode))
+        {
+            ModelState.AddModelError(nameof(request.Mode), "Mode must be 'guided' or 'ai'.");
+            return ValidationProblem(ModelState);
+        }
 
-        return Ok(new ChatResponse(reply.Reply, reply.ToolsUsed, _chatService.ModeName));
+        var result = await _chat.ReplyAsync(request.Message!.Trim(), mode, cancellationToken);
+
+        return Ok(new ChatResponse(result.Reply.Reply, result.Reply.ToolsUsed, result.Mode, result.Notice));
     }
 }
