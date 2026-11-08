@@ -1,6 +1,7 @@
 using System.ClientModel;
 using Microsoft.Extensions.AI;
 using OpenAI;
+using StockWiseMcp.Mcp;
 
 namespace StockWiseMcp.Services.Chat;
 
@@ -44,7 +45,10 @@ public static class ChatServiceCollectionExtensions
             var configured = provider.GetRequiredService<IConfiguration>()[McpEndpointSettingName];
             var logger = provider.GetRequiredService<ILogger<GuidedDemoChatService>>();
 
-            return new GuidedDemoChatService(ResolveEndpoint(provider, configured), logger);
+            return new GuidedDemoChatService(
+                ResolveEndpoint(provider, configured),
+                logger,
+                provider.GetService<McpAccessKey>()?.ClientKey);
         });
 
         services.AddScoped<IChatService>(provider => provider.GetRequiredService<GuidedDemoChatService>());
@@ -106,7 +110,8 @@ public static class ChatServiceCollectionExtensions
             return new AiChatService(
                 provider.GetRequiredService<IChatClient>(),
                 ResolveEndpoint(provider, configured),
-                provider.GetRequiredService<ILogger<AiChatService>>());
+                provider.GetRequiredService<ILogger<AiChatService>>(),
+                provider.GetService<McpAccessKey>()?.ClientKey);
         });
 
         return services;

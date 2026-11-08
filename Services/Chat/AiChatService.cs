@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
+using StockWiseMcp.Mcp;
 
 namespace StockWiseMcp.Services.Chat;
 
@@ -43,8 +44,9 @@ public sealed class AiChatService : IChatService
     private readonly IChatClient _chatClient;
     private readonly Uri _mcpEndpoint;
     private readonly ILogger<AiChatService> _logger;
+    private readonly string? _mcpAccessKey;
 
-    public AiChatService(IChatClient chatClient, Uri mcpEndpoint, ILogger<AiChatService> logger)
+    public AiChatService(IChatClient chatClient, Uri mcpEndpoint, ILogger<AiChatService> logger, string? mcpAccessKey = null)
     {
         ArgumentNullException.ThrowIfNull(chatClient);
         ArgumentNullException.ThrowIfNull(mcpEndpoint);
@@ -53,6 +55,7 @@ public sealed class AiChatService : IChatService
         _chatClient = chatClient;
         _mcpEndpoint = mcpEndpoint;
         _logger = logger;
+        _mcpAccessKey = mcpAccessKey;
     }
 
     public string ModeName => "AI Assistant";
@@ -86,11 +89,13 @@ public sealed class AiChatService : IChatService
         try
         {
             await using var client = await McpClient.CreateAsync(
-                new HttpClientTransport(new HttpClientTransportOptions
-                {
-                    Endpoint = _mcpEndpoint,
-                    Name = "StockWise AI Assistant"
-                }),
+                new HttpClientTransport(McpAccessKey.WithAccessKey(
+                    new HttpClientTransportOptions
+                    {
+                        Endpoint = _mcpEndpoint,
+                        Name = "StockWise AI Assistant"
+                    },
+                    _mcpAccessKey)),
                 cancellationToken: timeout.Token);
 
             // The guard validates every tool call against what the user actually asked for, and records
