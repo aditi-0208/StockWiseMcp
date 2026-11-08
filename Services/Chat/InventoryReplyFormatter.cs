@@ -15,6 +15,61 @@ public static class InventoryReplyFormatter
     // The search tool returns at most this many rows (limit set by the repository).
     private const int SearchResultCap = 15;
 
+    /// <summary>
+    /// Renders the result of an MCP tool call exactly as the data says, for any of the inventory tools.
+    /// AI mode uses this so every figure shown to the user comes from the tool result, never from the model.
+    /// </summary>
+    /// <returns>The text, or null if the tool is unknown or the data does not have the expected shape.</returns>
+    public static string? FormatToolResult(
+        string toolName,
+        JsonElement data,
+        IReadOnlyDictionary<string, object?> arguments)
+    {
+        var expectsArray = toolName is GuidedDemoTools.SearchInventory
+            or GuidedDemoTools.RankProductsByValue
+            or GuidedDemoTools.GetLowStockProducts;
+        var expectedKind = expectsArray ? JsonValueKind.Array : JsonValueKind.Object;
+
+        if (data.ValueKind != expectedKind || !HasExpectedFields(toolName, data))
+        {
+            return null; // Never show a card of empty/zero values because the data had an unexpected shape.
+        }
+
+        return toolName switch
+        {
+            GuidedDemoTools.LookupProduct => FormatProduct(data),
+            GuidedDemoTools.SearchInventory => FormatSearch(
+                data,
+                arguments.GetValueOrDefault("searchText") as string,
+                arguments.GetValueOrDefault("maxPrice") as decimal?),
+            GuidedDemoTools.GetInventorySummary => FormatSummary(data),
+            GuidedDemoTools.RankProductsByValue => FormatRanking(data),
+            GuidedDemoTools.GetLowStockProducts => FormatLowStock(
+                data,
+                arguments.GetValueOrDefault("onlyOutOfStock") is true,
+                keyword: null),
+            _ => null
+        };
+    }
+
+    /// <summary>True if the data actually contains the fields the formatter is about to read.</summary>
+    private static bool HasExpectedFields(string toolName, JsonElement data)
+    {
+        static bool Has(JsonElement e, params string[] names) =>
+            e.ValueKind == JsonValueKind.Object && names.All(n => e.TryGetProperty(n, out _));
+
+        return toolName switch
+        {
+            GuidedDemoTools.GetInventorySummary => Has(data, "productCount", "totalUnits", "totalRetailInventoryValue"),
+            GuidedDemoTools.LookupProduct => Has(data, "sku", "productName", "unitPrice", "quantityInStock"),
+            // Lists may legitimately be empty; every item present must look like a product.
+            GuidedDemoTools.SearchInventory or GuidedDemoTools.RankProductsByValue or GuidedDemoTools.GetLowStockProducts
+                when data.ValueKind == JsonValueKind.Array =>
+                data.EnumerateArray().All(item => Has(item, "sku", "productName", "unitPrice", "quantityInStock")),
+            _ => false
+        };
+    }
+
     public static string FormatProduct(JsonElement product)
     {
         var builder = new StringBuilder();

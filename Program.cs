@@ -25,6 +25,10 @@ builder.Services.AddAntiforgery(options =>
 // Guided Demo chatbot (no API key). Calls this app's own /mcp endpoint.
 builder.Services.AddGuidedDemoChat();
 
+// Optional AI mode. Only active if an OpenAI key is supplied through user-secrets or the
+// OpenAI__ApiKey environment variable (never in a committed file); otherwise Guided Demo is used.
+builder.Services.AddAiChat(builder.Configuration);
+
 // MCP server exposing the inventory tools over HTTP.
 builder.Services
     .AddMcpServer()
