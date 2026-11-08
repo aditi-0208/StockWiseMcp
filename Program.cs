@@ -70,3 +70,6 @@ app.MapControllerRoute(
 app.MapMcp(McpAccessKeyExtensions.McpPath);
 
 app.Run();
+
+// Lets the integration tests (Tests/StockWiseMcp.Tests) start the app with WebApplicationFactory<Program>.
+public partial class Program;
