@@ -13,6 +13,9 @@ public enum ChatIntentKind
     Rank,
     LowStock,
 
+    /// <summary>"How many products need reordering?": a count, answered from the inventory summary.</summary>
+    LowStockCount,
+
     // The kinds below never need an MCP tool; the chat service answers them locally.
 
     /// <summary>"thanks", "bye" and similar.</summary>
@@ -81,9 +84,12 @@ public static class GuidedDemoIntentParser
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex LowStockTrigger =
-        new(@"\b(low[- ]stock|low on stock|low inventory|out of stock|sold out|stock ?outs?|running low|" +
+        new(@"\b(low[- ]stock|low (on|in) stock|low inventory|out of stock|sold out|stock ?outs?|running low|" +
             @"running out|almost out|reorder\w*|re-order\w*|restock\w*|replenish\w*|shortages?|understocked)\b",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex CountQuestion =
+        new(@"\b(how many|number of|count of)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex OutOfStockOnly =
         new(@"\b(out of stock|sold out|stock ?outs?)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -174,7 +180,11 @@ public static class GuidedDemoIntentParser
         "replenish", "shortage", "shortages", "soon", "attention", "urgent", "urgently", "sold", "almost",
         "anything", "something", "everything", "else", "also", "still", "already", "yet", "left",
         "update", "updates", "know", "check", "whether", "if", "so", "but", "not", "no", "yes",
-        "help", "helps", "assist", "assistance", "support"
+        "help", "helps", "assist", "assistance", "support",
+        // Words that describe the question, not the product (so they never become a search keyword).
+        "low-stock", "lowstock", "low_stock", "their", "level", "levels", "category", "categories",
+        "containing", "contain", "contains", "contained", "include", "includes", "including", "included",
+        "named", "called", "matching", "match", "matches", "number", "count"
     };
 
     public static ChatIntent Parse(string? message)
@@ -237,6 +247,16 @@ public static class GuidedDemoIntentParser
         {
             var onlyOutOfStock = OutOfStockOnly.IsMatch(text) && !LowStockWording.IsMatch(text);
             var keywords = ExtractKeywords(text);
+
+            // "How many ...?" without a product-type filter is a count question: answer it from the summary.
+            // (With a filter, such as "how many low-stock laptops", the list's first line gives the count.)
+            if (CountQuestion.IsMatch(text) && keywords.Count == 0)
+            {
+                return new ChatIntent(
+                    ChatIntentKind.LowStockCount,
+                    GuidedDemoTools.GetInventorySummary,
+                    new Dictionary<string, object?> { ["onlyOutOfStock"] = onlyOutOfStock });
+            }
 
             return new ChatIntent(
                 ChatIntentKind.LowStock,
