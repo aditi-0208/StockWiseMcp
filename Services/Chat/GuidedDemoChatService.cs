@@ -108,7 +108,8 @@ public sealed class GuidedDemoChatService : IChatService
         }
     }
 
-    private static string LocalReply(ChatIntentKind kind) => kind switch
+    /// <summary>Fixed replies for messages that need no inventory data. Shared with AI mode.</summary>
+    internal static string LocalReply(ChatIntentKind kind) => kind switch
     {
         ChatIntentKind.OffTopic => InventoryReplyFormatter.FormatOffTopic(),
         ChatIntentKind.Thanks => InventoryReplyFormatter.FormatThanks(),
@@ -141,7 +142,7 @@ public sealed class GuidedDemoChatService : IChatService
     /// <summary>
     /// Tool errors look like "An error occurred invoking 'x': reason". Show only the reason.
     /// </summary>
-    private static string ToolErrorMessage(string toolText)
+    internal static string ToolErrorMessage(string toolText)
     {
         var separator = toolText.IndexOf("': ", StringComparison.Ordinal);
         var reason = separator >= 0 ? toolText[(separator + 3)..] : toolText;
