@@ -155,6 +155,9 @@ public sealed class GuidedDemoChatService : IChatService
     {
         var separator = toolText.IndexOf("': ", StringComparison.Ordinal);
         var reason = separator >= 0 ? toolText[(separator + 3)..] : toolText;
+
+        // Tool errors are written for AI models and may name other tools; users should see plain advice.
+        reason = reason.Replace("Try search_inventory to find it by name.", "Try searching by product name instead.", StringComparison.Ordinal);
         return string.IsNullOrWhiteSpace(reason)
             ? "Sorry, something went wrong while looking that up."
             : $"I couldn't do that: {reason.Trim()}";

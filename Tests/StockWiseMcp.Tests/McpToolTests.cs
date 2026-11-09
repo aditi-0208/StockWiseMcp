@@ -167,6 +167,25 @@ public sealed class McpToolTests : IDisposable
     }
 
     [Fact]
+    public async Task LowStock_ProductExactlyAtReorderLevel_IsIncluded_AndOneAboveIsNot()
+    {
+        // The seed data has no product exactly at its reorder level, so add both sides of the boundary here.
+        _db.Execute(
+            """
+            INSERT INTO Products (SKU, ProductName, Description, Category, UnitPriceCents, UnitCostCents, QuantityInStock, ReorderLevel, Location, SupplierId)
+            VALUES ('TS-AT', 'Boundary At', 'Test row', 'Test', 100, 50, 5, 5, 'T1', 1),
+                   ('TS-ABOVE', 'Boundary Above', 'Test row', 'Test', 100, 50, 6, 5, 'T1', 1);
+            """);
+
+        var skus = (await _tools.GetLowStockProducts()).Select(p => p.Sku).ToList();
+        var summary = await _tools.GetInventorySummary();
+
+        Assert.Contains("TS-AT", skus);
+        Assert.DoesNotContain("TS-ABOVE", skus);
+        Assert.Equal(_db.Scalar<long>("SELECT COUNT(*) FROM Products WHERE QuantityInStock <= ReorderLevel"), summary.LowStockCount);
+    }
+
+    [Fact]
     public async Task LowStock_OutOfStockItemsComeFirst()
     {
         var results = await _tools.GetLowStockProducts();
