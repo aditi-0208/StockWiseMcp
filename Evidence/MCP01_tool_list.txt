@@ -1,0 +1,22 @@
+tools/list response from /mcp, 2026-11-09: 5 tools
+
+get_inventory_summary (readOnly: True)
+  Get overall inventory statistics: number of products and suppliers, total units in stock, total retail value of the stock (in US dollars), how many products are low on stock (at or below their reorder level, including out-of-stock items), and how many are completely out of stock. Use this for broad questions like 'how is our inventory doing?' or 'what is our total stock value?'. Takes no arguments.
+  inputs: []
+
+get_low_stock_products (readOnly: True)
+  List the products that need restocking: those whose quantity in stock is at or below their reorder level (this includes products that are completely out of stock). Each product comes with its stock level, reorder level, location and supplier (including supplier lead time). Results are sorted by urgency: out-of-stock products first, then those furthest below their reorder level. Use this for questions like 'which products need reordering?', 'what is running low?' or 'what is out of stock?'. For just the NUMBER of low-stock products, get_inventory_summary is enough.
+  inputs: ['onlyOutOfStock', 'category']
+
+lookup_product (readOnly: True)
+  Look up ONE product by its exact SKU (for example 'SW-001') and return its full details: price, stock quantity, reorder level, location, supplier and retail inventory value. Use this when the user gives a specific SKU. If the user only gives a product name or description, use search_inventory instead.
+  inputs: ['sku']
+
+rank_products_by_value (readOnly: True)
+  Rank products by the retail value of the stock currently on hand (unit price x quantity in stock), highest first. Returns each product with its inventory value in US dollars. Use this for questions like 'which products tie up the most money?' or 'what are our top 5 products by inventory value?'. This ranks individual products, not categories.
+  inputs: ['count']
+
+search_inventory (readOnly: True)
+  Search products by keyword and/or category and/or maximum price. The keyword is matched (case-insensitive, substring) against SKU, product name, description and category. Returns at most 15 products sorted by name, each with price, stock, location and supplier. Use this for questions like 'do we have any monitors?', 'show laptops under $1000' or 'find USB-C products'. All arguments are optional and combine with AND. This tool does not filter by stock level; use another tool for low-stock questions.
+  inputs: ['searchText', 'category', 'maxPrice']
+

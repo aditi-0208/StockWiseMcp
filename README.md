@@ -9,6 +9,10 @@ inventory questions by calling five read-only MCP tools over a SQLite database.
 - Chat API: `GET /api/chat/token`, then `POST /api/chat` with header `X-CSRF-TOKEN` and body
   `{ "message": "...", "mode": "guided" | "ai" }` (message 2–500 characters).
 
+## Pages
+
+`/` overview, `/Home/Chat` chatbot, `/Home/Inventory` stock overview, `/Home/Architecture` how it works.
+
 ## Run locally
 
 ```bash
@@ -27,9 +31,11 @@ dotnet user-secrets set "OpenAI:ApiKey" "<your key>"
 dotnet test Tests/StockWiseMcp.Tests
 ```
 
-72 automated tests (xUnit) cover the five MCP tools against independent SQL, chat input validation,
-CSRF, the `/mcp` access key, MCP tool discovery, adversarial input and AI-mode fallback. Each test
+80 automated tests (xUnit) cover the five MCP tools against independent SQL, chat input validation,
+CSRF, the `/mcp` access key, MCP tool discovery, adversarial input, AI-mode fallback and the web pages. Each test
 run uses its own temporary database. Evidence from the latest run is in `Evidence/`.
+
+`Tests/scripts/evaluate_chat.py` runs the 10-question evaluation against a running app and regenerates the evidence files.
 
 ## Deploy (Render, free tier)
 

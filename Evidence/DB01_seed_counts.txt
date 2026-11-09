@@ -1,0 +1,17 @@
+StockWise database check, 2026-11-09, freshly created database
+
+Suppliers: 6
+Products: 30
+PRAGMA foreign_key_check violations: 0
+Duplicate SKUs: 0
+
+Products per category:
+  Accessories: 4
+  Audio: 4
+  Cameras: 2
+  Keyboards: 3
+  Laptops: 5
+  Mice: 3
+  Monitors: 4
+  Networking: 2
+  Storage: 3
