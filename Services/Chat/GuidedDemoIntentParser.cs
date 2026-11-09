@@ -13,6 +13,9 @@ public enum ChatIntentKind
     Rank,
     LowStock,
 
+    /// <summary>"How many products need reordering?": a count, answered from the inventory summary.</summary>
+    LowStockCount,
+
     // The kinds below never need an MCP tool; the chat service answers them locally.
 
     /// <summary>"thanks", "bye" and similar.</summary>
@@ -81,9 +84,12 @@ public static class GuidedDemoIntentParser
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex LowStockTrigger =
-        new(@"\b(low[- ]stock|low on stock|low inventory|out of stock|sold out|stock ?outs?|running low|" +
+        new(@"\b(low[- ]stock|low (on|in) stock|low inventory|out of stock|sold out|stock ?outs?|running low|" +
             @"running out|almost out|reorder\w*|re-order\w*|restock\w*|replenish\w*|shortages?|understocked)\b",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex CountQuestion =
+        new(@"\b(how many|number of|count of)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex OutOfStockOnly =
         new(@"\b(out of stock|sold out|stock ?outs?)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -173,7 +179,12 @@ public static class GuidedDemoIntentParser
         "low", "running", "out", "needs", "needed", "reorder", "reordering", "restock", "restocking",
         "replenish", "shortage", "shortages", "soon", "attention", "urgent", "urgently", "sold", "almost",
         "anything", "something", "everything", "else", "also", "still", "already", "yet", "left",
-        "update", "updates", "know", "check", "whether", "if", "so", "but", "not", "no", "yes"
+        "update", "updates", "know", "check", "whether", "if", "so", "but", "not", "no", "yes",
+        "help", "helps", "assist", "assistance", "support",
+        // Words that describe the question, not the product (so they never become a search keyword).
+        "low-stock", "lowstock", "low_stock", "their", "level", "levels", "category", "categories",
+        "containing", "contain", "contains", "contained", "include", "includes", "including", "included",
+        "named", "called", "matching", "match", "matches", "number", "count"
     };
 
     public static ChatIntent Parse(string? message)
@@ -221,15 +232,10 @@ public static class GuidedDemoIntentParser
         if (RankTrigger.IsMatch(text) && ValueCue.IsMatch(text))
         {
             var arguments = new Dictionary<string, object?>();
-            var count = CountPattern.Match(text);
-            if (count.Success)
+            var requestedCount = TryGetRankCount(text);
+            if (requestedCount is not null)
             {
-                var token = count.Groups["n"].Success ? count.Groups["n"].Value : count.Groups["n2"].Value;
-                var parsed = ParseCount(token);
-                if (parsed is not null)
-                {
-                    arguments["count"] = parsed.Value;
-                }
+                arguments["count"] = requestedCount.Value;
             }
 
             return new ChatIntent(ChatIntentKind.Rank, GuidedDemoTools.RankProductsByValue, arguments);
@@ -241,6 +247,16 @@ public static class GuidedDemoIntentParser
         {
             var onlyOutOfStock = OutOfStockOnly.IsMatch(text) && !LowStockWording.IsMatch(text);
             var keywords = ExtractKeywords(text);
+
+            // "How many ...?" without a product-type filter is a count question: answer it from the summary.
+            // (With a filter, such as "how many low-stock laptops", the list's first line gives the count.)
+            if (CountQuestion.IsMatch(text) && keywords.Count == 0)
+            {
+                return new ChatIntent(
+                    ChatIntentKind.LowStockCount,
+                    GuidedDemoTools.GetInventorySummary,
+                    new Dictionary<string, object?> { ["onlyOutOfStock"] = onlyOutOfStock });
+            }
 
             return new ChatIntent(
                 ChatIntentKind.LowStock,
@@ -270,22 +286,9 @@ public static class GuidedDemoIntentParser
         var arguments = new Dictionary<string, object?>();
         var remaining = text;
 
-        var price = MaxPricePattern.Match(remaining);
-        if (!price.Success)
+        var price = MatchMaxPrice(remaining, out var amount);
+        if (price is not null)
         {
-            price = TrailingPricePattern.Match(remaining);
-        }
-
-        if (price.Success)
-        {
-            var amount = decimal.Parse(
-                price.Groups["n"].Value.Replace(",", string.Empty),
-                CultureInfo.InvariantCulture);
-            if (price.Groups["k"].Success)
-            {
-                amount *= 1000m;
-            }
-
             arguments["maxPrice"] = amount;
             remaining = remaining.Remove(price.Index, price.Length);
         }
@@ -321,6 +324,58 @@ public static class GuidedDemoIntentParser
             .Where(w => w.Length > 1 && !StopWords.Contains(w) && !decimal.TryParse(w, out _))
             .Select(Singularize)
             .ToList();
+    }
+
+    // ---- What did the user actually ask for? ----------------------------------------------
+    // These are public so AI mode can check a model's tool arguments against the user's own words.
+
+    /// <summary>Every SKU written in the message (for example "SW-001"), upper-cased, without duplicates.</summary>
+    public static IReadOnlyList<string> ExtractSkus(string? text) =>
+        string.IsNullOrEmpty(text)
+            ? []
+            : SkuPattern.Matches(text).Select(m => m.Value.ToUpperInvariant()).Distinct().ToList();
+
+    /// <summary>The maximum price the user stated ("under $200", "$60 or less"), in dollars, or null.</summary>
+    public static decimal? TryGetMaxPrice(string? text) =>
+        !string.IsNullOrEmpty(text) && MatchMaxPrice(text, out var amount) is not null ? amount : null;
+
+    /// <summary>The "top N" the user stated ("top 3", "five most valuable"), or null.</summary>
+    public static int? TryGetRankCount(string? text)
+    {
+        var count = string.IsNullOrEmpty(text) ? Match.Empty : CountPattern.Match(text);
+        if (!count.Success)
+        {
+            return null;
+        }
+
+        var token = count.Groups["n"].Success ? count.Groups["n"].Value : count.Groups["n2"].Value;
+        return ParseCount(token);
+    }
+
+    private static Match? MatchMaxPrice(string text, out decimal amount)
+    {
+        amount = 0m;
+
+        var price = MaxPricePattern.Match(text);
+        if (!price.Success)
+        {
+            price = TrailingPricePattern.Match(text);
+        }
+
+        if (!price.Success)
+        {
+            return null;
+        }
+
+        amount = decimal.Parse(
+            price.Groups["n"].Value.Replace(",", string.Empty),
+            CultureInfo.InvariantCulture);
+        if (price.Groups["k"].Success)
+        {
+            amount *= 1000m;
+        }
+
+        return price;
     }
 
     private static int? ParseCount(string token)

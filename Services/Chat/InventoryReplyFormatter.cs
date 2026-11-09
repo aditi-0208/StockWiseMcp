@@ -15,6 +15,61 @@ public static class InventoryReplyFormatter
     // The search tool returns at most this many rows (limit set by the repository).
     private const int SearchResultCap = 15;
 
+    /// <summary>
+    /// Renders the result of an MCP tool call exactly as the data says, for any of the inventory tools.
+    /// AI mode uses this so every figure shown to the user comes from the tool result, never from the model.
+    /// </summary>
+    /// <returns>The text, or null if the tool is unknown or the data does not have the expected shape.</returns>
+    public static string? FormatToolResult(
+        string toolName,
+        JsonElement data,
+        IReadOnlyDictionary<string, object?> arguments)
+    {
+        var expectsArray = toolName is GuidedDemoTools.SearchInventory
+            or GuidedDemoTools.RankProductsByValue
+            or GuidedDemoTools.GetLowStockProducts;
+        var expectedKind = expectsArray ? JsonValueKind.Array : JsonValueKind.Object;
+
+        if (data.ValueKind != expectedKind || !HasExpectedFields(toolName, data))
+        {
+            return null; // Never show a card of empty/zero values because the data had an unexpected shape.
+        }
+
+        return toolName switch
+        {
+            GuidedDemoTools.LookupProduct => FormatProduct(data),
+            GuidedDemoTools.SearchInventory => FormatSearch(
+                data,
+                arguments.GetValueOrDefault("searchText") as string,
+                arguments.GetValueOrDefault("maxPrice") as decimal?),
+            GuidedDemoTools.GetInventorySummary => FormatSummary(data),
+            GuidedDemoTools.RankProductsByValue => FormatRanking(data),
+            GuidedDemoTools.GetLowStockProducts => FormatLowStock(
+                data,
+                arguments.GetValueOrDefault("onlyOutOfStock") is true,
+                keyword: null),
+            _ => null
+        };
+    }
+
+    /// <summary>True if the data actually contains the fields the formatter is about to read.</summary>
+    private static bool HasExpectedFields(string toolName, JsonElement data)
+    {
+        static bool Has(JsonElement e, params string[] names) =>
+            e.ValueKind == JsonValueKind.Object && names.All(n => e.TryGetProperty(n, out _));
+
+        return toolName switch
+        {
+            GuidedDemoTools.GetInventorySummary => Has(data, "productCount", "totalUnits", "totalRetailInventoryValue"),
+            GuidedDemoTools.LookupProduct => Has(data, "sku", "productName", "unitPrice", "quantityInStock"),
+            // Lists may legitimately be empty; every item present must look like a product.
+            GuidedDemoTools.SearchInventory or GuidedDemoTools.RankProductsByValue or GuidedDemoTools.GetLowStockProducts
+                when data.ValueKind == JsonValueKind.Array =>
+                data.EnumerateArray().All(item => Has(item, "sku", "productName", "unitPrice", "quantityInStock")),
+            _ => false
+        };
+    }
+
     public static string FormatProduct(JsonElement product)
     {
         var builder = new StringBuilder();
@@ -99,6 +154,7 @@ public static class InventoryReplyFormatter
     public static string FormatLowStock(JsonElement products, bool onlyOutOfStock, string? keyword)
     {
         var items = products.ValueKind == JsonValueKind.Array ? products.EnumerateArray().ToList() : [];
+        var allCount = items.Count;
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
@@ -106,6 +162,21 @@ public static class InventoryReplyFormatter
         }
 
         var scope = string.IsNullOrWhiteSpace(keyword) ? string.Empty : $" matching \"{keyword}\"";
+
+        // There ARE products to reorder, but none of them match the filter word. Say exactly that;
+        // "good news, nothing is low" would be false.
+        if (items.Count == 0 && allCount > 0)
+        {
+            var allNoun = allCount == 1 ? "product" : "products";
+            var allVerb = allCount == 1 ? "is" : "are";
+            var allPronoun = allCount == 1 ? "it" : "them";
+
+            return onlyOutOfStock
+                ? $"No out-of-stock products match \"{keyword}\". In total {allCount} {allNoun} {allVerb} out of stock - " +
+                  $"ask \"what is out of stock?\" to see {allPronoun}."
+                : $"No low-stock products match \"{keyword}\". In total {allCount} {allNoun} {allVerb} at or below the reorder level - " +
+                  $"ask \"which products need reordering?\" to see {allPronoun}.";
+        }
 
         if (items.Count == 0)
         {
@@ -152,6 +223,24 @@ public static class InventoryReplyFormatter
         return keyword
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .All(word => haystack.Contains(word, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The answer to "how many products need reordering / are out of stock?".</summary>
+    public static string FormatLowStockCount(JsonElement summary, bool onlyOutOfStock)
+    {
+        var low = Long(summary, "lowStockCount");
+        var outOfStock = Long(summary, "outOfStockCount");
+
+        if (onlyOutOfStock)
+        {
+            return outOfStock == 0
+                ? "No products are completely out of stock right now."
+                : $"{outOfStock} {(outOfStock == 1 ? "product is" : "products are")} completely out of stock. " +
+                  "Ask \"what is out of stock?\" to see which.";
+        }
+
+        return LowStockSentence(low, outOfStock) +
+               (low == 0 ? string.Empty : " Ask \"which products need reordering?\" to see the list.");
     }
 
     public static string FormatRanking(JsonElement products)

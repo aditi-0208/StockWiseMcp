@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using StockWiseMcp.Mcp;
 
 namespace StockWiseMcp.Services.Chat;
 
@@ -17,9 +18,11 @@ public sealed class GuidedDemoChatService : IChatService
 {
     private readonly Uri _mcpEndpoint;
     private readonly ILogger<GuidedDemoChatService> _logger;
+    private readonly string? _mcpAccessKey;
 
     /// <param name="mcpEndpoint">Absolute URL of the MCP server, for example http://localhost:5247/mcp.</param>
-    public GuidedDemoChatService(Uri mcpEndpoint, ILogger<GuidedDemoChatService> logger)
+    /// <param name="mcpAccessKey">The key /mcp requires, or null when it is open (Development).</param>
+    public GuidedDemoChatService(Uri mcpEndpoint, ILogger<GuidedDemoChatService> logger, string? mcpAccessKey = null)
     {
         ArgumentNullException.ThrowIfNull(mcpEndpoint);
         ArgumentNullException.ThrowIfNull(logger);
@@ -31,6 +34,7 @@ public sealed class GuidedDemoChatService : IChatService
 
         _mcpEndpoint = mcpEndpoint;
         _logger = logger;
+        _mcpAccessKey = mcpAccessKey;
     }
 
     public string ModeName => "Guided Demo";
@@ -52,11 +56,13 @@ public sealed class GuidedDemoChatService : IChatService
             // The MCP server is stateless, so a short-lived client per message is simple and
             // always sees the server's current tool list.
             await using var client = await McpClient.CreateAsync(
-                new HttpClientTransport(new HttpClientTransportOptions
-                {
-                    Endpoint = _mcpEndpoint,
-                    Name = "StockWise Guided Demo"
-                }),
+                new HttpClientTransport(McpAccessKey.WithAccessKey(
+                    new HttpClientTransportOptions
+                    {
+                        Endpoint = _mcpEndpoint,
+                        Name = "StockWise Guided Demo"
+                    },
+                    _mcpAccessKey)),
                 cancellationToken: cancellationToken);
 
             var tools = await client.ListToolsAsync(cancellationToken: cancellationToken);
@@ -108,7 +114,8 @@ public sealed class GuidedDemoChatService : IChatService
         }
     }
 
-    private static string LocalReply(ChatIntentKind kind) => kind switch
+    /// <summary>Fixed replies for messages that need no inventory data. Shared with AI mode.</summary>
+    internal static string LocalReply(ChatIntentKind kind) => kind switch
     {
         ChatIntentKind.OffTopic => InventoryReplyFormatter.FormatOffTopic(),
         ChatIntentKind.Thanks => InventoryReplyFormatter.FormatThanks(),
@@ -129,6 +136,9 @@ public sealed class GuidedDemoChatService : IChatService
             data,
             intent.Arguments.TryGetValue("onlyOutOfStock", out var outOnly) && outOnly is true,
             intent.Keyword),
+        ChatIntentKind.LowStockCount => InventoryReplyFormatter.FormatLowStockCount(
+            data,
+            intent.Arguments.TryGetValue("onlyOutOfStock", out var outOnlyCount) && outOnlyCount is true),
         ChatIntentKind.Rank => InventoryReplyFormatter.FormatRanking(data),
         _ => InventoryReplyFormatter.FormatUnknown()
     };
@@ -141,7 +151,7 @@ public sealed class GuidedDemoChatService : IChatService
     /// <summary>
     /// Tool errors look like "An error occurred invoking 'x': reason". Show only the reason.
     /// </summary>
-    private static string ToolErrorMessage(string toolText)
+    internal static string ToolErrorMessage(string toolText)
     {
         var separator = toolText.IndexOf("': ", StringComparison.Ordinal);
         var reason = separator >= 0 ? toolText[(separator + 3)..] : toolText;

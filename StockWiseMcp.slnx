@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/StockWiseMcp.Tests/StockWiseMcp.Tests.csproj" />
+  </Folder>
+  <Project Path="StockWiseMcp.csproj" />
+</Solution>

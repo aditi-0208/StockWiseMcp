@@ -31,10 +31,10 @@ public sealed class InventoryTools
     [McpServerTool(Name = "lookup_product", ReadOnly = true)]
     [Description(
         "Look up ONE product by its exact SKU (for example 'SW-001') and return its full details: " +
-        "price, cost, stock quantity, reorder level, location, supplier and inventory value. " +
+        "price, stock quantity, reorder level, location, supplier and retail inventory value. " +
         "Use this when the user gives a specific SKU. If the user only gives a product name or " +
         "description, use search_inventory instead.")]
-    public async Task<ProductWithSupplier> LookupProduct(
+    public async Task<ProductInfo> LookupProduct(
         [Description("The exact product SKU, such as 'SW-001'. Case-insensitive.")] string sku,
         CancellationToken cancellationToken = default)
     {
@@ -51,9 +51,10 @@ public sealed class InventoryTools
 
         var product = await _repository.GetBySkuAsync(cleanSku, cancellationToken);
 
-        return product
-            ?? throw new McpException(
-                $"No product with SKU '{cleanSku}' exists. Try search_inventory to find it by name.");
+        return product is null
+            ? throw new McpException(
+                $"No product with SKU '{cleanSku}' exists. Try search_inventory to find it by name.")
+            : ProductInfo.From(product);
     }
 
     [McpServerTool(Name = "search_inventory", ReadOnly = true)]
@@ -64,7 +65,7 @@ public sealed class InventoryTools
         "Use this for questions like 'do we have any monitors?', 'show laptops under $1000' or " +
         "'find USB-C products'. All arguments are optional and combine with AND. " +
         "This tool does not filter by stock level; use another tool for low-stock questions.")]
-    public async Task<IReadOnlyList<ProductWithSupplier>> SearchInventory(
+    public async Task<IReadOnlyList<ProductInfo>> SearchInventory(
         [Description("Keyword to look for, such as 'laptop' or 'usb-c'. Omit to not filter by keyword.")]
         string? searchText = null,
         [Description("Exact category name, such as 'Laptops', 'Monitors', 'Keyboards', 'Mice', " +
@@ -92,19 +93,21 @@ public sealed class InventoryTools
             throw new McpException("The 'maxPrice' argument cannot be negative.");
         }
 
-        return await _repository.SearchAsync(searchText, category, maxPrice, cancellationToken);
+        var products = await _repository.SearchAsync(searchText, category, maxPrice, cancellationToken);
+
+        return products.Select(ProductInfo.From).ToList();
     }
 
     [McpServerTool(Name = "get_inventory_summary", ReadOnly = true)]
     [Description(
         "Get overall inventory statistics: number of products and suppliers, total units in stock, " +
-        "total retail value and total cost value of the stock (in US dollars), how many products " +
+        "total retail value of the stock (in US dollars), how many products " +
         "are low on stock (at or below their reorder level, including out-of-stock items), and how " +
         "many are completely out of stock. Use this for broad questions like 'how is our inventory " +
         "doing?' or 'what is our total stock value?'. Takes no arguments.")]
-    public Task<InventorySummary> GetInventorySummary(
+    public async Task<InventorySummaryInfo> GetInventorySummary(
         CancellationToken cancellationToken = default)
-        => _repository.SummarizeAsync(cancellationToken);
+        => InventorySummaryInfo.From(await _repository.SummarizeAsync(cancellationToken));
 
     [McpServerTool(Name = "rank_products_by_value", ReadOnly = true)]
     [Description(
@@ -112,7 +115,7 @@ public sealed class InventoryTools
         "in stock), highest first. Returns each product with its inventory value in US dollars. " +
         "Use this for questions like 'which products tie up the most money?' or 'what are our " +
         "top 5 products by inventory value?'. This ranks individual products, not categories.")]
-    public async Task<IReadOnlyList<ProductWithSupplier>> RankProductsByValue(
+    public async Task<IReadOnlyList<ProductInfo>> RankProductsByValue(
         [Description("How many top products to return, from 1 to 10. Defaults to 5. " +
                      "Values outside the range are adjusted to fit.")]
         int count = DefaultRankingCount,
@@ -120,7 +123,9 @@ public sealed class InventoryTools
     {
         var clampedCount = Math.Clamp(count, MinRankingCount, MaxRankingCount);
 
-        return await _repository.TopByValueAsync(clampedCount, cancellationToken);
+        var products = await _repository.TopByValueAsync(clampedCount, cancellationToken);
+
+        return products.Select(ProductInfo.From).ToList();
     }
 
     [McpServerTool(Name = "get_low_stock_products", ReadOnly = true)]
@@ -132,7 +137,7 @@ public sealed class InventoryTools
         "reorder level. Use this for questions like 'which products need reordering?', 'what is running " +
         "low?' or 'what is out of stock?'. For just the NUMBER of low-stock products, " +
         "get_inventory_summary is enough.")]
-    public async Task<IReadOnlyList<ProductWithSupplier>> GetLowStockProducts(
+    public async Task<IReadOnlyList<ProductInfo>> GetLowStockProducts(
         [Description("Set to true to list only products that are completely out of stock (quantity 0). " +
                      "Defaults to false, which lists everything at or below its reorder level.")]
         bool onlyOutOfStock = false,
@@ -155,6 +160,7 @@ public sealed class InventoryTools
             .OrderBy(p => p.QuantityInStock == 0 ? 0 : 1)
             .ThenBy(p => p.QuantityInStock - p.ReorderLevel)
             .ThenBy(p => p.ProductName, StringComparer.OrdinalIgnoreCase)
+            .Select(ProductInfo.From)
             .ToList();
     }
 }
