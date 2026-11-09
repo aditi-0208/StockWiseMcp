@@ -33,6 +33,16 @@ public sealed class TempDatabase : IDisposable
         return (T)Convert.ChangeType(command.ExecuteScalar()!, typeof(T));
     }
 
+    /// <summary>Changes this throwaway database (used to add boundary rows the seed data lacks).</summary>
+    public void Execute(string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={DatabaseFile};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
     public List<string> Column(string sql)
     {
         using var connection = new SqliteConnection($"Data Source={DatabaseFile};Mode=ReadOnly;Pooling=False");

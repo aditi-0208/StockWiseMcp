@@ -1,8 +1,33 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="hero">
+    <h1>Ask your inventory a question.</h1>
+    <p class="lead">StockWise answers stock, supplier and reorder questions in plain English. Every number comes from the database through a read-only tool, so nothing is made up.</p>
+    <a class="btn btn-primary btn-lg" asp-controller="Home" asp-action="Chat">Open the chat</a>
+    <a class="btn btn-outline-primary btn-lg" asp-controller="Home" asp-action="Inventory">View inventory</a>
+</section>
+
+<section class="row g-3 mt-2">
+    <div class="col-md-4">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="h5">Grounded answers</h2>
+            <p class="mb-0">Answers are built from MCP tool results, and each reply shows which tool produced it.</p>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="h5">Works without an AI key</h2>
+            <p class="mb-0">Guided Demo mode is always available. Optional AI mode falls back to it if the model can't answer.</p>
+        </div></div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="h5">Read-only and bounded</h2>
+            <p class="mb-0">Five narrow tools, parameterized SQL, limited results, and no way to run custom queries.</p>
+        </div></div>
+    </div>
+</section>
+
+<p class="text-muted mt-4">All inventory data in this application is synthetic. <a asp-controller="Home" asp-action="Architecture">See how it works.</a></p>

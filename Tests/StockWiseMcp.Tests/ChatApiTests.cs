@@ -167,6 +167,24 @@ public sealed class ChatApiTests : IClassFixture<ChatApiTests.Server>
         Assert.DoesNotContain("$", text);
     }
 
+    [Fact]
+    public async Task A6_UnknownSku_DoesNotShowInternalToolNames()
+    {
+        var reply = await ChatApi.AskAsync(_factory.CreateBrowserClient(), "Look up SKU SW-999");
+        Assert.DoesNotContain("search_inventory", reply.GetProperty("reply").GetString()!);
+    }
+
+    [Fact]
+    public async Task LongMessage_GetsFriendlyReply_NotAToolValidationError()
+    {
+        var reply = await ChatApi.AskAsync(_factory.CreateBrowserClient(), new string('k', 500));
+        var text = reply.GetProperty("reply").GetString()!;
+
+        Assert.DoesNotContain("searchText", text);
+        Assert.DoesNotContain("argument", text);
+        Assert.Empty(reply.GetProperty("toolsUsed").EnumerateArray());
+    }
+
     // ---------- A7: adversarial input ----------
 
     [Theory]

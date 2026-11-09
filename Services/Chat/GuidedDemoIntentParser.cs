@@ -60,6 +60,8 @@ public static class GuidedDemoTools
 /// </summary>
 public static class GuidedDemoIntentParser
 {
+    private const int MaxSearchTextLength = 100;
+
     private static readonly IReadOnlyDictionary<string, object?> NoArguments =
         new Dictionary<string, object?>();
 
@@ -294,10 +296,18 @@ public static class GuidedDemoIntentParser
         }
 
         var keywords = ExtractKeywords(remaining);
+        var searchText = string.Join(' ', keywords);
+
+        // The search tool accepts at most 100 characters. Text longer than that is not a product
+        // search, so ask the user to rephrase rather than show them the tool's validation error.
+        if (searchText.Length > MaxSearchTextLength)
+        {
+            return Intent(ChatIntentKind.Unknown);
+        }
 
         if (keywords.Count > 0)
         {
-            arguments["searchText"] = string.Join(' ', keywords);
+            arguments["searchText"] = searchText;
         }
 
         // Without a search cue or any usable keyword/price there is nothing to search for.
