@@ -1,0 +1,39 @@
+@{
+    ViewData["Title"] = "Architecture";
+}
+
+<h1 class="h3">How StockWise works</h1>
+<p class="text-muted">The chatbot never touches the database directly. It can only reach data through five read-only MCP tools.</p>
+
+<ol class="flow" aria-label="Request path">
+    <li><strong>Browser</strong><span>Chat page sends the question with a CSRF token</span></li>
+    <li><strong>ChatController</strong><span>Checks the token, 2&ndash;500 characters and the mode</span></li>
+    <li><strong>ChatOrchestrator</strong><span>Picks Guided Demo or AI, and handles fallback</span></li>
+    <li><strong>MCP client &rarr; /mcp</strong><span>Discovers the tools and calls one over HTTP, with an access key</span></li>
+    <li><strong>InventoryTools</strong><span>Validates input, limits output, removes cost data</span></li>
+    <li><strong>Repository + SQLite</strong><span>Runs parameterized, read-only queries</span></li>
+</ol>
+
+<h2 class="h5 mt-4">MCP tools</h2>
+<div class="table-responsive">
+    <table class="table table-sm">
+        <thead><tr><th scope="col">Tool</th><th scope="col">Answers</th><th scope="col">Limits</th></tr></thead>
+        <tbody>
+            <tr><td><code>lookup_product</code></td><td>Details of one SKU</td><td>SKU required, 50 characters at most, one row</td></tr>
+            <tr><td><code>search_inventory</code></td><td>Search by text, category or maximum price</td><td>100-character filters, 20 rows at most</td></tr>
+            <tr><td><code>get_inventory_summary</code></td><td>Totals, retail value, low-stock counts</td><td>Aggregates only</td></tr>
+            <tr><td><code>rank_products_by_value</code></td><td>Top products by stock value</td><td>Count limited to 1&ndash;10</td></tr>
+            <tr><td><code>get_low_stock_products</code></td><td>Products at or below their reorder level</td><td>Optional out-of-stock and category filters</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<h2 class="h5 mt-4">Safeguards</h2>
+<ul>
+    <li>Parameterized SQL, and no tool that accepts custom queries.</li>
+    <li>CSRF tokens on every chat request, and server-side length checks.</li>
+    <li>SQL-like, prompt-injection and off-topic messages are answered without calling a tool.</li>
+    <li><code>/mcp</code> requires an access key outside Development, and tool results never include cost data.</li>
+    <li>API keys are read from user secrets or environment variables, never from committed files.</li>
+    <li>In AI mode, figures shown to the user come from tool results, not from the model's wording.</li>
+</ul>

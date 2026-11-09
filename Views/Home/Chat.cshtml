@@ -1,0 +1,39 @@
+@{
+    ViewData["Title"] = "Chat";
+}
+
+<div class="chat-header">
+    <h1 class="h3 mb-0">Inventory chat</h1>
+    <div class="chat-controls">
+        <label class="form-label mb-0" for="chat-mode">Mode</label>
+        <select id="chat-mode" class="form-select form-select-sm">
+            <option value="guided">Guided Demo</option>
+        </select>
+        <button id="chat-clear" type="button" class="btn btn-outline-secondary btn-sm">Clear</button>
+    </div>
+</div>
+
+<div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Conversation" tabindex="0"></div>
+
+<div class="chat-suggestions" aria-label="Example questions">
+    <button type="button" class="btn btn-light btn-sm" data-question="How is our inventory doing?">Inventory summary</button>
+    <button type="button" class="btn btn-light btn-sm" data-question="Which products need reordering?">What needs reordering?</button>
+    <button type="button" class="btn btn-light btn-sm" data-question="What are the top 5 products by inventory value?">Top 5 by value</button>
+    <button type="button" class="btn btn-light btn-sm" data-question="Look up SW-001">Look up SW-001</button>
+    <button type="button" class="btn btn-light btn-sm" data-question="Do we have any monitors under $200?">Monitors under $200</button>
+</div>
+
+<form id="chat-form" class="chat-form" novalidate>
+    <label class="visually-hidden" for="chat-input">Your question</label>
+    <textarea id="chat-input" class="form-control" rows="2" maxlength="600" placeholder="Ask about products, stock or reorders" aria-describedby="chat-help"></textarea>
+    <button id="chat-send" type="submit" class="btn btn-primary">Send</button>
+</form>
+<div class="chat-help">
+    <span id="chat-help" class="text-muted">2 to 500 characters. Press Enter to send, Shift+Enter for a new line.</span>
+    <span id="chat-count" class="text-muted">0 / 500</span>
+</div>
+<div id="chat-error" class="alert alert-danger mt-2 d-none" role="alert"></div>
+
+@section Scripts {
+    <script src="~/js/chat.js" asp-append-version="true"></script>
+}
