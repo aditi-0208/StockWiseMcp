@@ -1,3 +1,4 @@
+using System.ClientModel;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
@@ -5,13 +6,33 @@ using StockWiseMcp.Mcp;
 
 namespace StockWiseMcp.Services.Chat;
 
+/// <summary>Why AI mode could not answer, so the caller can show a fitting message without leaking details.</summary>
+public enum AiUnavailableReason
+{
+    /// <summary>A general failure whose cause should not be shown to the user (for example a bad key).</summary>
+    Failed,
+
+    /// <summary>The AI provider was rate-limited or temporarily overloaded (HTTP 429).</summary>
+    Busy,
+
+    /// <summary>The model took too long to respond.</summary>
+    Timeout,
+
+    /// <summary>The model could not ground its answer in the inventory data (no/so wrong tool call).</summary>
+    NotGrounded
+}
+
 /// <summary>Thrown when AI mode cannot produce a trustworthy answer, so the caller can fall back.</summary>
 public sealed class AiUnavailableException : Exception
 {
-    public AiUnavailableException(string reason, Exception? inner = null)
+    public AiUnavailableException(string reason, AiUnavailableReason category = AiUnavailableReason.Failed, Exception? inner = null)
         : base(reason, inner)
     {
+        Category = category;
     }
+
+    /// <summary>The kind of failure, used to pick the user-facing message.</summary>
+    public AiUnavailableReason Category { get; }
 }
 
 /// <summary>
@@ -146,16 +167,38 @@ public sealed class AiChatService : IChatService
         {
             throw; // The caller gave up; not an AI failure.
         }
+        catch (OperationCanceledException ex)
+        {
+            // Our own RequestTimeout elapsed (not the caller's cancellation): the model was too slow.
+            _logger.LogWarning(ex, "AI mode timed out after {Timeout}s; the caller will fall back.", RequestTimeout.TotalSeconds);
+            throw new AiUnavailableException("The AI request timed out.", AiUnavailableReason.Timeout, ex);
+        }
         catch (AiUnavailableException)
         {
             throw;
         }
         catch (Exception ex)
         {
-            // Includes network errors, bad/expired keys (401), rate limits (429), model timeouts and MCP errors.
-            _logger.LogWarning(ex, "AI mode failed ({ExceptionType}); the caller will fall back.", ex.GetType().Name);
-            throw new AiUnavailableException("The AI request failed.", ex);
+            // Includes network errors, bad/expired keys (401), rate limits (429) and MCP errors.
+            var category = Classify(ex);
+            _logger.LogWarning(ex, "AI mode failed ({ExceptionType}, {Category}); the caller will fall back.",
+                ex.GetType().Name, category);
+            throw new AiUnavailableException("The AI request failed.", category, ex);
         }
+    }
+
+    /// <summary>
+    /// Maps a provider/transport exception to a user-safe category. A rate limit (HTTP 429) becomes
+    /// <see cref="AiUnavailableReason.Busy"/>; everything else stays <see cref="AiUnavailableReason.Failed"/>
+    /// so auth and configuration problems are never hinted at to the user.
+    /// </summary>
+    private static AiUnavailableReason Classify(Exception ex)
+    {
+        // The OpenAI and many OpenAI-compatible clients throw ClientResultException with a Status property.
+        var status = (ex as ClientResultException)?.Status
+                     ?? (ex.InnerException as ClientResultException)?.Status;
+
+        return status == 429 ? AiUnavailableReason.Busy : AiUnavailableReason.Failed;
     }
 
     /// <summary>
@@ -187,7 +230,8 @@ public sealed class AiChatService : IChatService
         {
             throw new AiUnavailableException(turn.RejectedCalls > 0
                 ? "The model's tool calls did not match what the user asked for."
-                : "The model answered an inventory question without using any tool.");
+                : "The model answered an inventory question without using any tool.",
+                AiUnavailableReason.NotGrounded);
         }
 
         // For questions the rules recognize with confidence (a SKU, "top N", a summary, low stock), the
@@ -196,7 +240,8 @@ public sealed class AiChatService : IChatService
         if (intent.Kind is ChatIntentKind.Lookup or ChatIntentKind.Rank or ChatIntentKind.Summary or ChatIntentKind.LowStock
             && records.All(r => r.Name != intent.ToolName))
         {
-            throw new AiUnavailableException("The model used different tools than the question calls for.");
+            throw new AiUnavailableException("The model used different tools than the question calls for.",
+                AiUnavailableReason.NotGrounded);
         }
 
         var facts = new List<string>();
@@ -230,7 +275,8 @@ public sealed class AiChatService : IChatService
             // No tool was needed (a greeting, "what can you do"). The wording is all there is, so it
             // must pass the same checks: no figures, nothing invented.
             return leadIn is null
-                ? throw new AiUnavailableException("The model's wording could not be used and no data was retrieved.")
+                ? throw new AiUnavailableException("The model's wording could not be used and no data was retrieved.",
+                    AiUnavailableReason.NotGrounded)
                 : new ChatReply(leadIn, toolsUsed);
         }
 
