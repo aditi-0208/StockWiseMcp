@@ -6,7 +6,11 @@ using StockWiseMcp.Mcp;
 namespace StockWiseMcp.Services.Chat;
 
 /// <summary>One configured AI provider the page can choose. API keys stay inside <paramref name="Client"/>.</summary>
-public sealed record AiProvider(string Id, string Name, IChatClient Client);
+/// <param name="Temperature">
+/// Sampling temperature to send, or null to omit it. Some models (for example OpenAI's GPT-5 family)
+/// only accept the default and reject any explicit value.
+/// </param>
+public sealed record AiProvider(string Id, string Name, IChatClient Client, float? Temperature);
 
 /// <summary>The AI providers that have a usable key, in order of preference.</summary>
 public sealed record AiChatSettings(IReadOnlyList<AiProvider> Providers);
@@ -15,7 +19,7 @@ public sealed record AiChatSettings(IReadOnlyList<AiProvider> Providers);
 public sealed class AiChatServiceFactory(Uri mcpEndpoint, ILogger<AiChatService> logger, string? mcpAccessKey)
 {
     public AiChatService Create(AiProvider provider) =>
-        new(provider.Client, mcpEndpoint, logger, provider.Name, mcpAccessKey);
+        new(provider.Client, mcpEndpoint, logger, provider.Name, mcpAccessKey, provider.Temperature);
 }
 
 public static class ChatServiceCollectionExtensions
@@ -95,7 +99,8 @@ public static class ChatServiceCollectionExtensions
             providers.Add(new AiProvider(
                 ChatModes.Gemini,
                 "AI Assistant (Gemini)",
-                WithTools(CreateGeminiClient(geminiKey!.Trim(), model, configuration[GeminiEndpointSettingName]))));
+                WithTools(CreateGeminiClient(geminiKey!.Trim(), model, configuration[GeminiEndpointSettingName])),
+                SupportsCustomTemperature(useGemini: true, model) ? 0.2f : null));
         }
 
         var openAiKey = configuration[ApiKeySettingName];
@@ -105,7 +110,8 @@ public static class ChatServiceCollectionExtensions
             providers.Add(new AiProvider(
                 ChatModes.OpenAi,
                 "AI Assistant (OpenAI)",
-                WithTools(CreateOpenAiClient(openAiKey!.Trim(), model, configuration[EndpointSettingName]))));
+                WithTools(CreateOpenAiClient(openAiKey!.Trim(), model, configuration[EndpointSettingName])),
+                SupportsCustomTemperature(useGemini: false, model) ? 0.2f : null));
         }
 
         services.AddSingleton(new AiChatSettings(providers));
@@ -162,6 +168,26 @@ public static class ChatServiceCollectionExtensions
         }
 
         return new OpenAIClient(new ApiKeyCredential(apiKey), options).GetChatClient(model).AsIChatClient();
+    }
+
+    /// <summary>
+    /// Whether the model accepts an explicit sampling temperature. OpenAI's GPT-5 family and the
+    /// o1/o3/o4 reasoning models only allow the default (1) and return a 400 for any other value;
+    /// for those we omit the parameter. Gemini and the GPT-4 family accept a custom value.
+    /// </summary>
+    internal static bool SupportsCustomTemperature(bool useGemini, string model)
+    {
+        if (useGemini)
+        {
+            return true;
+        }
+
+        var name = model.Trim();
+
+        return !(name.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase)
+                 || name.StartsWith("o1", StringComparison.OrdinalIgnoreCase)
+                 || name.StartsWith("o3", StringComparison.OrdinalIgnoreCase)
+                 || name.StartsWith("o4", StringComparison.OrdinalIgnoreCase));
     }
 
     private static Uri ParseHttpUrl(string value, string settingName) =>
