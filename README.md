@@ -7,7 +7,7 @@ inventory questions by calling five read-only MCP tools over a SQLite database.
 - MCP tools at `/mcp`: `lookup_product`, `search_inventory`, `get_inventory_summary`,
   `rank_products_by_value`, `get_low_stock_products`. Cost data is never returned.
 - Chat API: `GET /api/chat/token`, then `POST /api/chat` with header `X-CSRF-TOKEN` and body
-  `{ "message": "...", "mode": "guided" | "ai" }` (message 2–500 characters).
+  `{ "message": "...", "mode": "guided" | "gemini" | "openai" | "ai" }` (message 2–500 characters).
 
 ## Pages
 
@@ -25,7 +25,7 @@ The database (`App_Data/stockwise.db`) is created and seeded on first run. To tu
 dotnet user-secrets set "Gemini:ApiKey" "<your Google AI Studio key>"
 ```
 
-An OpenAI key also works (`OpenAI:ApiKey`). If both are set, Gemini is used. `Gemini:Model` changes the default model, `gemini-3.6-flash`.
+An OpenAI key also works (`OpenAI:ApiKey`). Each configured key appears as its own choice in the chat page's Mode dropdown. `Gemini:Model` changes the default model, `gemini-3.6-flash`.
 
 ## Tests
 

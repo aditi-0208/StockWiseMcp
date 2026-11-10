@@ -5,8 +5,22 @@ using StockWiseMcp.Mcp;
 
 namespace StockWiseMcp.Services.Chat;
 
-/// <summary>Whether AI mode is configured, and which model it uses. Never contains the API key.</summary>
-public sealed record AiChatSettings(bool Enabled, string Model);
+/// <summary>One configured AI provider the page can choose. API keys stay inside <paramref name="Client"/>.</summary>
+/// <param name="Temperature">
+/// Sampling temperature to send, or null to omit it. Some models (for example OpenAI's GPT-5 family)
+/// only accept the default and reject any explicit value.
+/// </param>
+public sealed record AiProvider(string Id, string Name, IChatClient Client, float? Temperature);
+
+/// <summary>The AI providers that have a usable key, in order of preference.</summary>
+public sealed record AiChatSettings(IReadOnlyList<AiProvider> Providers);
+
+/// <summary>Creates the chat service for the provider a message asked for.</summary>
+public sealed class AiChatServiceFactory(Uri mcpEndpoint, ILogger<AiChatService> logger, string? mcpAccessKey)
+{
+    public AiChatService Create(AiProvider provider) =>
+        new(provider.Client, mcpEndpoint, logger, provider.Name, mcpAccessKey, provider.Temperature);
+}
 
 public static class ChatServiceCollectionExtensions
 {
@@ -27,7 +41,7 @@ public static class ChatServiceCollectionExtensions
     public const string DefaultModel = "gpt-4o-mini";
 
     /// <summary>
-    /// A Google AI Studio API key. When usable it takes priority over the OpenAI key. NEVER put this in a
+    /// A Google AI Studio API key. NEVER put this in a
     /// committed file. Supply it as <c>Gemini__ApiKey</c> or with <c>dotnet user-secrets set "Gemini:ApiKey" "..."</c>.
     /// </summary>
     public const string GeminiApiKeySettingName = "Gemini:ApiKey";
@@ -76,56 +90,64 @@ public static class ChatServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAiChat(this IServiceCollection services, IConfiguration configuration)
     {
-        var useGemini = IsUsableApiKey(configuration[GeminiApiKeySettingName]);
-        var apiKey = configuration[useGemini ? GeminiApiKeySettingName : ApiKeySettingName];
-        var configuredModel = configuration[useGemini ? GeminiModelSettingName : ModelSettingName];
-        var model = string.IsNullOrWhiteSpace(configuredModel)
-            ? (useGemini ? DefaultGeminiModel : DefaultModel)
-            : configuredModel.Trim();
-        var enabled = IsUsableApiKey(apiKey);
+        var providers = new List<AiProvider>();
 
-        services.AddSingleton(new AiChatSettings(enabled, model));
+        var geminiKey = configuration[GeminiApiKeySettingName];
+        if (IsUsableApiKey(geminiKey))
+        {
+            var model = ModelOrDefault(configuration[GeminiModelSettingName], DefaultGeminiModel);
+            providers.Add(new AiProvider(
+                ChatModes.Gemini,
+                "AI Assistant (Gemini)",
+                WithTools(CreateGeminiClient(geminiKey!.Trim(), model, configuration[GeminiEndpointSettingName])),
+                SupportsCustomTemperature(useGemini: true, model) ? 0.2f : null));
+        }
+
+        var openAiKey = configuration[ApiKeySettingName];
+        if (IsUsableApiKey(openAiKey))
+        {
+            var model = ModelOrDefault(configuration[ModelSettingName], DefaultModel);
+            providers.Add(new AiProvider(
+                ChatModes.OpenAi,
+                "AI Assistant (OpenAI)",
+                WithTools(CreateOpenAiClient(openAiKey!.Trim(), model, configuration[EndpointSettingName])),
+                SupportsCustomTemperature(useGemini: false, model) ? 0.2f : null));
+        }
+
+        services.AddSingleton(new AiChatSettings(providers));
         services.AddSingleton<AiRequestLimiter>();
         services.AddScoped<ChatOrchestrator>();
 
-        if (!enabled)
+        if (providers.Count == 0)
         {
             return services;
         }
 
-        var providerClient = useGemini
-            ? CreateGeminiClient(apiKey!.Trim(), model, configuration[GeminiEndpointSettingName])
-            : CreateOpenAiClient(apiKey!.Trim(), model, configuration[EndpointSettingName]);
+        services.AddScoped<AiChatServiceFactory>(provider =>
+        {
+            var configured = provider.GetRequiredService<IConfiguration>()[McpEndpointSettingName];
 
-        // The model can only reach inventory data through the tools passed with each request.
-        IChatClient chatClient = new ChatClientBuilder(providerClient)
+            return new AiChatServiceFactory(
+                ResolveEndpoint(provider, configured),
+                provider.GetRequiredService<ILogger<AiChatService>>(),
+                provider.GetService<McpAccessKey>()?.ClientKey);
+        });
+
+        return services;
+    }
+
+    private static string ModelOrDefault(string? configured, string fallback) =>
+        string.IsNullOrWhiteSpace(configured) ? fallback : configured.Trim();
+
+    /// <summary>The model can only reach inventory data through the tools passed with each request.</summary>
+    private static IChatClient WithTools(IChatClient providerClient) =>
+        new ChatClientBuilder(providerClient)
             .UseFunctionInvocation(configure: client =>
             {
                 client.MaximumIterationsPerRequest = 5;
                 client.IncludeDetailedErrors = true; // our tool errors are short, safe messages the model should see
             })
             .Build();
-
-        services.AddSingleton(chatClient);
-
-        // Some models only accept the default sampling temperature and reject an explicit value.
-        // For those, pass null so the request omits the temperature parameter.
-        var temperature = SupportsCustomTemperature(useGemini, model) ? (float?)0.2f : null;
-
-        services.AddScoped<AiChatService>(provider =>
-        {
-            var configured = provider.GetRequiredService<IConfiguration>()[McpEndpointSettingName];
-
-            return new AiChatService(
-                provider.GetRequiredService<IChatClient>(),
-                ResolveEndpoint(provider, configured),
-                provider.GetRequiredService<ILogger<AiChatService>>(),
-                provider.GetService<McpAccessKey>()?.ClientKey,
-                temperature);
-        });
-
-        return services;
-    }
 
     /// <summary>Uses Google's native Gemini API, whose SDK carries tool-call data between requests.</summary>
     private static IChatClient CreateGeminiClient(string apiKey, string model, string? endpoint)

@@ -27,7 +27,7 @@ public class GeminiModeTests
         var (reply, _, followUp) = await AskAsync(
             "What are the top 5 products by inventory value?", "rank_products_by_value", """{"count":5}""");
 
-        Assert.Equal("AI Assistant", reply.GetProperty("mode").GetString());
+        Assert.Equal("AI Assistant (Gemini)", reply.GetProperty("mode").GetString());
         Assert.Contains("rank_products_by_value", reply.GetProperty("toolsUsed").EnumerateArray().Select(t => t.GetString()));
         Assert.Contains("SW-004", reply.GetProperty("reply").GetString());
         Assert.Contains(Signature, followUp);
@@ -40,7 +40,7 @@ public class GeminiModeTests
         var (reply, first, _) = await AskAsync(
             "i need to start return order for SW-001", "lookup_product", """{"sku":"SW-001"}""");
 
-        Assert.Equal("AI Assistant", reply.GetProperty("mode").GetString());
+        Assert.Equal("AI Assistant (Gemini)", reply.GetProperty("mode").GetString());
         Assert.Contains("Creator Laptop 14", reply.GetProperty("reply").GetString());
 
         using var request = System.Text.Json.JsonDocument.Parse(first);
@@ -63,9 +63,11 @@ public class GeminiModeTests
             ["Gemini:ApiKey"] = "AIza-test-0123456789abcdefghij",
             ["Gemini:Model"] = "gemini-test",
             ["Gemini:Endpoint"] = $"http://127.0.0.1:{port}/",
+            ["OpenAI:ApiKey"] = "sk-test-0123456789abcdefghij",
+            ["OpenAI:Endpoint"] = "http://127.0.0.1:9/v1/", // nothing listens here, so only Gemini can answer
         });
 
-        var reply = await ChatApi.AskAsync(factory.CreateBrowserClient(), question, mode: "ai");
+        var reply = await ChatApi.AskAsync(factory.CreateBrowserClient(), question, mode: "gemini");
         var (first, followUp) = await stub.WaitAsync(TimeSpan.FromSeconds(30));
         return (reply, first, followUp);
     }

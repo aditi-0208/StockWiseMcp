@@ -77,7 +77,7 @@ public sealed class ChatController : ControllerBase
 
         if (!ChatModes.TryParse(request.Mode, out var mode))
         {
-            ModelState.AddModelError(nameof(request.Mode), "Mode must be 'guided' or 'ai'.");
+            ModelState.AddModelError(nameof(request.Mode), "Mode must be 'guided', 'gemini', 'openai' or 'ai'.");
             return ValidationProblem(ModelState);
         }
 
