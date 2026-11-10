@@ -34,12 +34,14 @@ internal sealed class AiTurn : IDisposable
     private readonly HashSet<string> _vocabulary = new(StringComparer.OrdinalIgnoreCase);
     private readonly decimal? _userMaxPrice;
     private readonly int? _userRankCount;
+    private readonly bool _userWantsLowestValue;
 
     public AiTurn(string userMessage)
     {
         _userSkus = new HashSet<string>(GuidedDemoIntentParser.ExtractSkus(userMessage), StringComparer.OrdinalIgnoreCase);
         _userMaxPrice = GuidedDemoIntentParser.TryGetMaxPrice(userMessage);
         _userRankCount = GuidedDemoIntentParser.TryGetRankCount(userMessage);
+        _userWantsLowestValue = GuidedDemoIntentParser.WantsLowestValue(userMessage);
         AddWords(userMessage);
     }
 
@@ -123,7 +125,15 @@ internal sealed class AiTurn : IDisposable
                 var count = args.GetValueOrDefault("count") as decimal?;
                 if (_userRankCount is not null && count != _userRankCount)
                 {
-                    Reject($"The user asked for the top {_userRankCount}; pass exactly that as count.");
+                    Reject($"The user asked for {(_userWantsLowestValue ? "the lowest" : "the top")} {_userRankCount}; " +
+                           "pass exactly that as count.");
+                }
+
+                // The direction must match what the user asked for, or the list would be labelled wrongly.
+                var highestFirst = args.GetValueOrDefault("highestFirst") is not false;
+                if (_userWantsLowestValue && highestFirst)
+                {
+                    Reject("The user asked for the LOWEST-value products; pass highestFirst=false.");
                 }
 
                 break;

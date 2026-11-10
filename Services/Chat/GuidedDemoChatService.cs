@@ -139,7 +139,9 @@ public sealed class GuidedDemoChatService : IChatService
         ChatIntentKind.LowStockCount => InventoryReplyFormatter.FormatLowStockCount(
             data,
             intent.Arguments.TryGetValue("onlyOutOfStock", out var outOnlyCount) && outOnlyCount is true),
-        ChatIntentKind.Rank => InventoryReplyFormatter.FormatRanking(data),
+        ChatIntentKind.Rank => InventoryReplyFormatter.FormatRanking(
+            data,
+            highestFirst: intent.Arguments.GetValueOrDefault("highestFirst") is not false),
         _ => InventoryReplyFormatter.FormatUnknown()
     };
 

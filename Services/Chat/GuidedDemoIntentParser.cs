@@ -73,7 +73,17 @@ public static class GuidedDemoIntentParser
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex RankTrigger =
-        new(@"\b(top|rank(ed|ing)?|most valuable|highest[- ]value|most money|worth the most|biggest|tie[sd]? up)\b",
+        new(@"\b(top|bottom|rank(ed|ing)?|most valuable|least valuable|highest[- ]value|lowest[- ]value|" +
+            @"most money|least money|worth the most|worth the least|biggest|smallest|tie[sd]? up|" +
+            @"highest|lowest|cheapest|lowest[- ]?valued)\b" +
+            // "low N" / "low value" also ranks (the low-stock rule runs later and wins when stock words appear).
+            @"|\blow\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|value|valued)\b",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>Signals the user wants the LOWEST-value products first rather than the highest.</summary>
+    private static readonly Regex LowestDirection =
+        new(@"\b(bottom|lowest|least|smallest|cheapest|low(est)?[- ]?valued?|worth the least)\b" +
+            @"|\blow\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|value|valued)\b",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex ValueCue =
@@ -115,8 +125,8 @@ public static class GuidedDemoIntentParser
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex CountPattern =
-        new(@"\b(?:top|first)\s+(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b" +
-            @"|\b(?<n2>\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:most|highest|top|biggest)\b",
+        new(@"\b(?:top|first|bottom|lowest|low|least)\s+(?<n>\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b" +
+            @"|\b(?<n2>\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:most|highest|top|biggest|lowest|least|smallest|cheapest)\b",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex WordPattern =
@@ -230,7 +240,7 @@ public static class GuidedDemoIntentParser
             return Intent(ChatIntentKind.Thanks);
         }
 
-        // 2. Ranking by inventory value, optionally with "top N".
+        // 2. Ranking by inventory value, optionally with "top N" / "bottom N".
         if (RankTrigger.IsMatch(text) && ValueCue.IsMatch(text))
         {
             var arguments = new Dictionary<string, object?>();
@@ -238,6 +248,12 @@ public static class GuidedDemoIntentParser
             if (requestedCount is not null)
             {
                 arguments["count"] = requestedCount.Value;
+            }
+
+            // Default is highest-value first; only send the flag when the user asked for the lowest.
+            if (WantsLowestValue(text))
+            {
+                arguments["highestFirst"] = false;
             }
 
             return new ChatIntent(ChatIntentKind.Rank, GuidedDemoTools.RankProductsByValue, arguments);
@@ -348,6 +364,10 @@ public static class GuidedDemoIntentParser
     /// <summary>The maximum price the user stated ("under $200", "$60 or less"), in dollars, or null.</summary>
     public static decimal? TryGetMaxPrice(string? text) =>
         !string.IsNullOrEmpty(text) && MatchMaxPrice(text, out var amount) is not null ? amount : null;
+
+    /// <summary>True when the user asked for the LOWEST-value products ("bottom 5", "lowest value"), not the highest.</summary>
+    public static bool WantsLowestValue(string? text) =>
+        !string.IsNullOrEmpty(text) && LowestDirection.IsMatch(text);
 
     /// <summary>The "top N" the user stated ("top 3", "five most valuable"), or null.</summary>
     public static int? TryGetRankCount(string? text)

@@ -156,16 +156,23 @@ public sealed class SqliteProductRepository
     /// <summary>
     /// Returns up to 10 products ranked by retail value of their current stock.
     /// </summary>
+    /// <param name="descending">
+    /// True (the default) ranks highest value first ("top"); false ranks lowest value first ("bottom").
+    /// </param>
     public Task<IReadOnlyList<ProductWithSupplier>> TopByValueAsync(
         int count,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool descending = true)
     {
         ValidateRankingCount(count);
 
+        // The direction is chosen from a bool, not interpolated user text, so the SQL stays injection-safe.
+        var direction = descending ? "DESC" : "ASC";
+
         return QueryProductsAsync(
-            """
+            $"""
             ORDER BY
-                (CAST(p.UnitPriceCents AS INTEGER) * p.QuantityInStock) DESC,
+                (CAST(p.UnitPriceCents AS INTEGER) * p.QuantityInStock) {direction},
                 p.ProductId
             LIMIT $limit;
             """,
