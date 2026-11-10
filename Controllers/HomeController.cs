@@ -53,4 +53,16 @@ public class HomeController : Controller
     {
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
+
+    /// <summary>Friendly page for 404 and other HTTP error status codes (re-executed, URL unchanged).</summary>
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult StatusCode(int? code)
+    {
+        if (code.HasValue)
+        {
+            Response.StatusCode = code.Value;
+        }
+
+        return View(new StatusCodeViewModel(code ?? 500));
+    }
 }

@@ -20,9 +20,15 @@
         <caption class="visually-hidden">Products at or below their reorder level, most urgent first</caption>
         <thead><tr><th scope="col">SKU</th><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="text-end">In stock</th><th scope="col" class="text-end">Reorder level</th><th scope="col">Supplier</th><th scope="col" class="text-end">Lead time</th></tr></thead>
         <tbody>
-            @foreach (var p in Model.LowStock)
+            @if (Model.LowStock.Count == 0)
             {
                 <tr>
+                    <td colspan="7" class="text-center text-muted py-3">Nothing needs reordering &mdash; every product is above its reorder level.</td>
+                </tr>
+            }
+            @foreach (var p in Model.LowStock)
+            {
+                <tr class="@(p.QuantityInStock == 0 ? "table-danger" : "table-warning")">
                     <td>@p.Sku</td>
                     <td>@p.ProductName</td>
                     <td>@p.Category</td>
@@ -51,6 +57,12 @@
         <caption class="visually-hidden">The five products with the highest retail value in stock</caption>
         <thead><tr><th scope="col">SKU</th><th scope="col">Product</th><th scope="col" class="text-end">Quantity</th><th scope="col" class="text-end">Unit price</th><th scope="col" class="text-end">Value</th></tr></thead>
         <tbody>
+            @if (Model.TopByValue.Count == 0)
+            {
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-3">No products to show.</td>
+                </tr>
+            }
             @foreach (var p in Model.TopByValue)
             {
                 <tr>
