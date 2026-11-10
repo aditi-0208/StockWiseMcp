@@ -36,8 +36,8 @@ public static class ChatServiceCollectionExtensions
 
     public const string DefaultGeminiModel = "gemini-3.6-flash";
 
-    /// <summary>Google's OpenAI-compatible endpoint, which lets the OpenAI client talk to Gemini.</summary>
-    public const string GeminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/";
+    /// <summary>Optional base URL for a Gemini-compatible server (for example a local test double).</summary>
+    public const string GeminiEndpointSettingName = "Gemini:Endpoint";
 
     /// <summary>
     /// Registers the Guided Demo chat service. It calls this application's own /mcp endpoint.
@@ -93,22 +93,12 @@ public static class ChatServiceCollectionExtensions
             return services;
         }
 
-        var clientOptions = new OpenAIClientOptions { NetworkTimeout = TimeSpan.FromSeconds(30) };
-
-        var endpoint = useGemini ? GeminiEndpoint : configuration[EndpointSettingName];
-        if (!string.IsNullOrWhiteSpace(endpoint))
-        {
-            clientOptions.Endpoint = Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
-                                     && uri.Scheme is "http" or "https"
-                ? uri
-                : throw new InvalidOperationException($"'{EndpointSettingName}' must be an absolute http(s) URL.");
-        }
+        var providerClient = useGemini
+            ? CreateGeminiClient(apiKey!.Trim(), model, configuration[GeminiEndpointSettingName])
+            : CreateOpenAiClient(apiKey!.Trim(), model, configuration[EndpointSettingName]);
 
         // The model can only reach inventory data through the tools passed with each request.
-        IChatClient chatClient = new ChatClientBuilder(
-                new OpenAIClient(new ApiKeyCredential(apiKey!.Trim()), clientOptions)
-                    .GetChatClient(model)
-                    .AsIChatClient())
+        IChatClient chatClient = new ChatClientBuilder(providerClient)
             .UseFunctionInvocation(configure: client =>
             {
                 client.MaximumIterationsPerRequest = 5;
@@ -131,6 +121,32 @@ public static class ChatServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>Uses Google's native Gemini API, whose SDK carries tool-call data between requests.</summary>
+    private static IChatClient CreateGeminiClient(string apiKey, string model, string? endpoint)
+    {
+        var httpOptions = string.IsNullOrWhiteSpace(endpoint)
+            ? null
+            : new Google.GenAI.Types.HttpOptions { BaseUrl = ParseHttpUrl(endpoint, GeminiEndpointSettingName).ToString() };
+
+        return new Google.GenAI.Client(vertexAI: false, apiKey: apiKey, httpOptions: httpOptions).AsIChatClient(model);
+    }
+
+    private static IChatClient CreateOpenAiClient(string apiKey, string model, string? endpoint)
+    {
+        var options = new OpenAIClientOptions { NetworkTimeout = TimeSpan.FromSeconds(30) };
+        if (!string.IsNullOrWhiteSpace(endpoint))
+        {
+            options.Endpoint = ParseHttpUrl(endpoint, EndpointSettingName);
+        }
+
+        return new OpenAIClient(new ApiKeyCredential(apiKey), options).GetChatClient(model).AsIChatClient();
+    }
+
+    private static Uri ParseHttpUrl(string value, string settingName) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
+            ? uri
+            : throw new InvalidOperationException($"'{settingName}' must be an absolute http(s) URL.");
 
     /// <summary>
     /// A key is "usable" if it is present and does not look like a placeholder such as "your-key-here".
