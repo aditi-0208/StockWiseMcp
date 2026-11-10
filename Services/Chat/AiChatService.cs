@@ -123,7 +123,7 @@ public sealed class AiChatService : IChatService
                 new ChatOptions
                 {
                     Tools = tools,
-                    ToolMode = ChatToolMode.Auto,
+                    ToolMode = ToolModeFor(intent),
                     MaxOutputTokens = MaxOutputTokens,
                     Temperature = 0.2f
                 },
@@ -146,6 +146,20 @@ public sealed class AiChatService : IChatService
             throw new AiUnavailableException("The AI request failed.", ex);
         }
     }
+
+    /// <summary>
+    /// Makes the model use a tool on inventory questions, so it answers from real data instead of replying
+    /// in words and being rejected by the checks in <see cref="BuildReply"/>. The forced mode applies to the
+    /// model's first step only.
+    /// </summary>
+    private static ChatToolMode ToolModeFor(ChatIntent intent) => intent.Kind switch
+    {
+        ChatIntentKind.Lookup or ChatIntentKind.Rank or ChatIntentKind.Summary or ChatIntentKind.LowStock
+            => ChatToolMode.RequireSpecific(intent.ToolName!),
+        _ when intent.ToolName is not null => ChatToolMode.RequireAny,
+        _ => ChatToolMode.Auto
+    };
+
     /// <summary>
     /// Builds the text shown to the user. Facts (product details, prices, quantities, totals, rankings)
     /// are rendered from the tool results the guard recorded; the model contributes at most a short,
