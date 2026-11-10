@@ -27,6 +27,19 @@ public static class ChatServiceCollectionExtensions
     public const string DefaultModel = "gpt-4o-mini";
 
     /// <summary>
+    /// A Google AI Studio API key. When usable it takes priority over the OpenAI key. NEVER put this in a
+    /// committed file. Supply it as <c>Gemini__ApiKey</c> or with <c>dotnet user-secrets set "Gemini:ApiKey" "..."</c>.
+    /// </summary>
+    public const string GeminiApiKeySettingName = "Gemini:ApiKey";
+
+    public const string GeminiModelSettingName = "Gemini:Model";
+
+    public const string DefaultGeminiModel = "gemini-3.6-flash";
+
+    /// <summary>Google's OpenAI-compatible endpoint, which lets the OpenAI client talk to Gemini.</summary>
+    public const string GeminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/";
+
+    /// <summary>
     /// Registers the Guided Demo chat service. It calls this application's own /mcp endpoint.
     /// <para>
     /// By default the endpoint is built from the address the current request arrived on
@@ -63,10 +76,12 @@ public static class ChatServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAiChat(this IServiceCollection services, IConfiguration configuration)
     {
-        var apiKey = configuration[ApiKeySettingName];
-        var model = string.IsNullOrWhiteSpace(configuration[ModelSettingName])
-            ? DefaultModel
-            : configuration[ModelSettingName]!.Trim();
+        var useGemini = IsUsableApiKey(configuration[GeminiApiKeySettingName]);
+        var apiKey = configuration[useGemini ? GeminiApiKeySettingName : ApiKeySettingName];
+        var configuredModel = configuration[useGemini ? GeminiModelSettingName : ModelSettingName];
+        var model = string.IsNullOrWhiteSpace(configuredModel)
+            ? (useGemini ? DefaultGeminiModel : DefaultModel)
+            : configuredModel.Trim();
         var enabled = IsUsableApiKey(apiKey);
 
         services.AddSingleton(new AiChatSettings(enabled, model));
@@ -80,7 +95,7 @@ public static class ChatServiceCollectionExtensions
 
         var clientOptions = new OpenAIClientOptions { NetworkTimeout = TimeSpan.FromSeconds(30) };
 
-        var endpoint = configuration[EndpointSettingName];
+        var endpoint = useGemini ? GeminiEndpoint : configuration[EndpointSettingName];
         if (!string.IsNullOrWhiteSpace(endpoint))
         {
             clientOptions.Endpoint = Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
