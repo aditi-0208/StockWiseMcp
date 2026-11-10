@@ -53,6 +53,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// Show a friendly, branded page for 404 and other error status codes (re-executes the request
+// into HomeController.StatusCode without changing the URL in the address bar).
+app.UseStatusCodePagesWithReExecute("/Home/StatusCode", "?code={0}");
+
 app.UseHttpsRedirection();
 app.UseRouting();
 

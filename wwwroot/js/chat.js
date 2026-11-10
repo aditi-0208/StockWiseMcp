@@ -10,11 +10,13 @@
     const log = document.getElementById("chat-log");
     const form = document.getElementById("chat-form");
     const input = document.getElementById("chat-input");
+    const field = input.closest(".chat-field");
+    const inputError = document.getElementById("chat-input-error");
     const send = document.getElementById("chat-send");
     const clear = document.getElementById("chat-clear");
     const mode = document.getElementById("chat-mode");
     const count = document.getElementById("chat-count");
-    const errorBox = document.getElementById("chat-error");
+    const status = document.getElementById("chat-status");
 
     let csrf = null;
     let busy = false;
@@ -37,9 +39,30 @@
         }
     }
 
+    // Inline, accessible validation: attach the message to the field itself and flag the input.
     function showError(message) {
-        errorBox.textContent = message;
-        errorBox.classList.toggle("d-none", !message);
+        inputError.textContent = message || "";
+        field.classList.toggle("has-error", !!message);
+        input.setAttribute("aria-invalid", message ? "true" : "false");
+        if (message) {
+            input.focus();
+        }
+    }
+
+    function announce(message) {
+        status.textContent = message || "";
+    }
+
+    // Returns the trimmed message if it is valid for sending, otherwise null (and shows the reason).
+    function validate() {
+        const message = input.value.trim();
+        if (message.length < MIN_LENGTH || message.length > MAX_LENGTH) {
+            showError("Please enter between " + MIN_LENGTH + " and " + MAX_LENGTH + " characters.");
+            return null;
+        }
+
+        showError("");
+        return message;
     }
 
     function badge(text, style) {
@@ -94,14 +117,28 @@
 
     function updateCount() {
         const length = input.value.trim().length;
-        count.textContent = length + " / " + MAX_LENGTH;
+        count.replaceChildren();
+        const sr = document.createElement("span");
+        sr.className = "visually-hidden";
+        sr.textContent = "Character count: ";
+        count.appendChild(sr);
+        count.appendChild(document.createTextNode(length + " / " + MAX_LENGTH));
         count.classList.toggle("chat-count-over", length > MAX_LENGTH);
+
+        // Once an error is on screen, clear it as soon as the input becomes valid again.
+        if (field.classList.contains("has-error") && length >= MIN_LENGTH && length <= MAX_LENGTH) {
+            showError("");
+        }
     }
 
     function setBusy(value) {
         busy = value;
         send.disabled = value;
         send.textContent = value ? "Sending…" : "Send";
+        // Only announce the busy state; the result message set by the caller must survive un-busy.
+        if (value) {
+            announce("Sending your question…");
+        }
     }
 
     async function getToken() {
@@ -158,14 +195,11 @@
             return;
         }
 
-        const message = input.value.trim();
-        if (message.length < MIN_LENGTH || message.length > MAX_LENGTH) {
-            showError("Please enter between " + MIN_LENGTH + " and " + MAX_LENGTH + " characters.");
-            input.focus();
+        const message = validate();
+        if (message === null) {
             return;
         }
 
-        showError("");
         setBusy(true);
         try {
             const result = await ask(message);
@@ -175,6 +209,7 @@
             renderAll();
             input.value = "";
             updateCount();
+            announce("Answer received.");
         } catch (error) {
             showError(error.userMessage || "Sorry, the assistant can't be reached right now. Please try again.");
         } finally {
@@ -223,6 +258,7 @@
         saveHistory();
         showError("");
         renderAll();
+        announce("Conversation cleared.");
         input.focus();
     });
 

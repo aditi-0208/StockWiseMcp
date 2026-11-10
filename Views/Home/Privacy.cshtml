@@ -1,6 +1,21 @@
 ﻿@{
-    ViewData["Title"] = "Privacy Policy";
+    ViewData["Title"] = "Privacy";
 }
-<h1>@ViewData["Title"]</h1>
 
-<p>Use this page to detail your site's privacy policy.</p>
+<h1 class="h3">Privacy</h1>
+<p class="text-muted">StockWise is a course project built on synthetic data. It is not a commercial service.</p>
+
+<h2 class="h5 mt-4">What this app stores</h2>
+<ul>
+    <li>All inventory data is synthetic and lives in a local SQLite database. It does not describe any real company, supplier or product.</li>
+    <li>Your chat history is kept only in your browser (session storage) and is cleared when you close the tab or press <strong>Clear</strong>.</li>
+    <li>Questions are sent to the server to be answered and are not stored in a database or linked to you.</li>
+</ul>
+
+<h2 class="h5 mt-4">What this app does not do</h2>
+<ul>
+    <li>It does not run custom SQL or expose cost data through its tools.</li>
+    <li>It does not collect personal information, use tracking cookies, or share data with third parties beyond the optional AI model when AI mode is configured.</li>
+</ul>
+
+<p class="text-muted mt-3"><a asp-controller="Home" asp-action="Architecture">See how StockWise works.</a></p>

@@ -37,6 +37,26 @@ body {
   --sw-border: #d9e2e8;
 }
 
+/* Keyboard skip link: hidden until focused, then pinned to the top-left. */
+.skip-link {
+  position: absolute;
+  left: .5rem;
+  top: -3rem;
+  z-index: 1080;
+  background: var(--sw-brand);
+  color: #fff;
+  padding: .5rem .85rem;
+  border-radius: .35rem;
+  transition: top .15s ease-in-out;
+}
+.skip-link:focus { top: .5rem; color: #fff; }
+
+/* Make the current page obvious in the nav for sighted users too. */
+.navbar-nav .nav-link[aria-current="page"] { font-weight: 700; border-bottom: 2px solid var(--sw-brand); }
+
+/* Focus target after the skip link should not draw a persistent outline. */
+#main-content:focus { outline: none; }
+
 .navbar-brand { color: var(--sw-brand); font-weight: 700; }
 .btn-primary { --bs-btn-bg: var(--sw-brand); --bs-btn-border-color: var(--sw-brand); --bs-btn-hover-bg: #173b5b; --bs-btn-hover-border-color: #173b5b; --bs-btn-disabled-bg: var(--sw-brand); --bs-btn-disabled-border-color: var(--sw-brand); }
 .btn-outline-primary { --bs-btn-color: var(--sw-brand); --bs-btn-border-color: var(--sw-brand); --bs-btn-hover-bg: var(--sw-brand); --bs-btn-hover-border-color: var(--sw-brand); }
@@ -63,9 +83,20 @@ body {
 .chat-notice { color: #7a5200; font-size: .85rem; margin-top: .25rem; }
 .chat-empty { color: #5a6872; text-align: center; margin-top: 3rem; }
 .chat-suggestions { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0; }
-.chat-form { display: flex; gap: .5rem; align-items: stretch; }
+.chat-form { display: flex; gap: .5rem; align-items: flex-start; }
+.chat-field { flex: 1 1 auto; }
+.chat-form .btn { flex: 0 0 auto; }
+/* Inline validation: show the error under the input and flag it red when invalid. */
+.chat-field .invalid-feedback { display: none; }
+.chat-field.has-error .invalid-feedback { display: block; }
+.chat-field.has-error .form-control { border-color: #b02a37; }
+.chat-field.has-error .form-control:focus { box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem rgba(176, 42, 55, .45); }
 .chat-help { display: flex; justify-content: space-between; gap: 1rem; font-size: .85rem; margin-top: .25rem; }
 .chat-count-over { color: #b02a37 !important; font-weight: 600; }
+
+.error-page { max-width: 36rem; padding: 2rem 0; }
+.error-code { font-size: 3rem; font-weight: 700; color: var(--sw-brand); line-height: 1; margin-bottom: .25rem; }
+.error-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.25rem; }
 
 .flow { list-style: none; padding: 0; margin: 0; counter-reset: step; display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
 .flow li { counter-increment: step; background: var(--sw-surface); border: 1px solid var(--sw-border); border-radius: .5rem; padding: .75rem; }
