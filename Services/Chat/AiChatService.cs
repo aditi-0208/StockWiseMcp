@@ -47,8 +47,9 @@ public sealed class AiChatService : IChatService
     private readonly ILogger<AiChatService> _logger;
     private readonly string? _mcpAccessKey;
 
-    public AiChatService(IChatClient chatClient, Uri mcpEndpoint, ILogger<AiChatService> logger, string? mcpAccessKey = null)
+    public AiChatService(IChatClient chatClient, Uri mcpEndpoint, ILogger<AiChatService> logger, string modeName, string? mcpAccessKey = null)
     {
+        ModeName = modeName;
         ArgumentNullException.ThrowIfNull(chatClient);
         ArgumentNullException.ThrowIfNull(mcpEndpoint);
         ArgumentNullException.ThrowIfNull(logger);
@@ -59,7 +60,7 @@ public sealed class AiChatService : IChatService
         _mcpAccessKey = mcpAccessKey;
     }
 
-    public string ModeName => "AI Assistant";
+    public string ModeName { get; }
 
     /// <summary>
     /// False for messages that are answered with a fixed reply and never reach the model

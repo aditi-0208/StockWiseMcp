@@ -9,7 +9,7 @@ services:
     envVars:
       - key: PORT
         value: "8080"
-      # Optional AI mode (Gemini is used if both keys are set). Set values in the Render dashboard only; never commit them.
+      # Optional AI mode: each key set here becomes a choice on the chat page. Set values in the Render dashboard only; never commit them.
       - key: Gemini__ApiKey
         sync: false
       - key: OpenAI__ApiKey
