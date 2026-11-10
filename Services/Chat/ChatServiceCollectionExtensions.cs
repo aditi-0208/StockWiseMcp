@@ -108,6 +108,10 @@ public static class ChatServiceCollectionExtensions
 
         services.AddSingleton(chatClient);
 
+        // Some models only accept the default sampling temperature and reject an explicit value.
+        // For those, pass null so the request omits the temperature parameter.
+        var temperature = SupportsCustomTemperature(useGemini, model) ? (float?)0.2f : null;
+
         services.AddScoped<AiChatService>(provider =>
         {
             var configured = provider.GetRequiredService<IConfiguration>()[McpEndpointSettingName];
@@ -116,7 +120,8 @@ public static class ChatServiceCollectionExtensions
                 provider.GetRequiredService<IChatClient>(),
                 ResolveEndpoint(provider, configured),
                 provider.GetRequiredService<ILogger<AiChatService>>(),
-                provider.GetService<McpAccessKey>()?.ClientKey);
+                provider.GetService<McpAccessKey>()?.ClientKey,
+                temperature);
         });
 
         return services;
@@ -141,6 +146,26 @@ public static class ChatServiceCollectionExtensions
         }
 
         return new OpenAIClient(new ApiKeyCredential(apiKey), options).GetChatClient(model).AsIChatClient();
+    }
+
+    /// <summary>
+    /// Whether the model accepts an explicit sampling temperature. OpenAI's GPT-5 family and the
+    /// o1/o3/o4 reasoning models only allow the default (1) and return a 400 for any other value;
+    /// for those we omit the parameter. Gemini and the GPT-4 family accept a custom value.
+    /// </summary>
+    internal static bool SupportsCustomTemperature(bool useGemini, string model)
+    {
+        if (useGemini)
+        {
+            return true;
+        }
+
+        var name = model.Trim();
+
+        return !(name.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase)
+                 || name.StartsWith("o1", StringComparison.OrdinalIgnoreCase)
+                 || name.StartsWith("o3", StringComparison.OrdinalIgnoreCase)
+                 || name.StartsWith("o4", StringComparison.OrdinalIgnoreCase));
     }
 
     private static Uri ParseHttpUrl(string value, string settingName) =>

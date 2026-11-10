@@ -46,8 +46,14 @@ public sealed class AiChatService : IChatService
     private readonly Uri _mcpEndpoint;
     private readonly ILogger<AiChatService> _logger;
     private readonly string? _mcpAccessKey;
+    private readonly float? _temperature;
 
-    public AiChatService(IChatClient chatClient, Uri mcpEndpoint, ILogger<AiChatService> logger, string? mcpAccessKey = null)
+    public AiChatService(
+        IChatClient chatClient,
+        Uri mcpEndpoint,
+        ILogger<AiChatService> logger,
+        string? mcpAccessKey = null,
+        float? temperature = 0.2f)
     {
         ArgumentNullException.ThrowIfNull(chatClient);
         ArgumentNullException.ThrowIfNull(mcpEndpoint);
@@ -57,6 +63,9 @@ public sealed class AiChatService : IChatService
         _mcpEndpoint = mcpEndpoint;
         _logger = logger;
         _mcpAccessKey = mcpAccessKey;
+        // Some models (for example OpenAI's GPT-5 family) only accept the default temperature.
+        // Passing null leaves Temperature unset so the request omits the parameter entirely.
+        _temperature = temperature;
     }
 
     public string ModeName => "AI Assistant";
@@ -125,7 +134,7 @@ public sealed class AiChatService : IChatService
                     Tools = tools,
                     ToolMode = ToolModeFor(intent),
                     MaxOutputTokens = MaxOutputTokens,
-                    Temperature = 0.2f
+                    Temperature = _temperature
                 },
                 timeout.Token);
 

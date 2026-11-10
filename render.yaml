@@ -14,6 +14,9 @@ services:
         sync: false
       - key: OpenAI__ApiKey
         sync: false
+      # AI model used when an OpenAI key is present (and no Gemini key). Safe to commit (not a secret).
+      - key: OpenAI__Model
+        value: gpt-5-mini
       # Optional: a fixed key so outside MCP clients can call /mcp.
       # If unset, a random key is generated at startup and only the built-in chatbot can use /mcp.
       - key: StockWise__McpAccessKey
