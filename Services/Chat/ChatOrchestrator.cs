@@ -19,7 +19,7 @@ public sealed class ChatOrchestrator
     public const string DefaultModeSettingName = "StockWise:Chat:DefaultMode";
 
     private readonly GuidedDemoChatService _guided;
-    private readonly AiChatService? _ai;
+    private readonly AiChatServiceFactory? _aiFactory;
     private readonly AiChatSettings _settings;
     private readonly AiRequestLimiter _limiter;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -33,10 +33,10 @@ public sealed class ChatOrchestrator
         IHttpContextAccessor httpContextAccessor,
         IConfiguration configuration,
         ILogger<ChatOrchestrator> logger,
-        AiChatService? ai = null)
+        AiChatServiceFactory? aiFactory = null)
     {
         _guided = guided;
-        _ai = ai;
+        _aiFactory = aiFactory;
         _settings = settings;
         _limiter = limiter;
         _httpContextAccessor = httpContextAccessor;
@@ -49,10 +49,11 @@ public sealed class ChatOrchestrator
         EffectiveDefault(),
         [
             new ChatModeInfo(ChatModes.Guided, _guided.ModeName, Available: true),
-            new ChatModeInfo(ChatModes.Ai, "AI Assistant", Available: AiAvailable)
+            new ChatModeInfo(ChatModes.Gemini, "AI Assistant (Gemini)", Available: FindProvider(ChatModes.Gemini) is not null),
+            new ChatModeInfo(ChatModes.OpenAi, "AI Assistant (OpenAI)", Available: FindProvider(ChatModes.OpenAi) is not null)
         ]);
 
-    /// <param name="requestedMode">"guided", "ai", or null for the server default.</param>
+    /// <param name="requestedMode">"guided", "gemini", "openai", "ai" (first configured), or null for the server default.</param>
     public async Task<OrchestratedReply> ReplyAsync(
         string message,
         string? requestedMode,
@@ -60,12 +61,13 @@ public sealed class ChatOrchestrator
     {
         var mode = requestedMode ?? EffectiveDefault();
 
-        if (mode != ChatModes.Ai)
+        if (mode == ChatModes.Guided)
         {
             return await GuidedAsync(message, notice: null, cancellationToken);
         }
 
-        if (!AiAvailable)
+        var provider = FindProvider(mode);
+        if (provider is null || _aiFactory is null)
         {
             return await GuidedAsync(
                 message,
@@ -85,8 +87,9 @@ public sealed class ChatOrchestrator
 
         try
         {
-            var reply = await _ai!.ReplyAsync(message, cancellationToken);
-            return new OrchestratedReply(reply, _ai.ModeName, Notice: null);
+            var ai = _aiFactory.Create(provider);
+            var reply = await ai.ReplyAsync(message, cancellationToken);
+            return new OrchestratedReply(reply, ai.ModeName, Notice: null);
         }
         catch (AiUnavailableException ex)
         {
@@ -98,13 +101,13 @@ public sealed class ChatOrchestrator
         }
     }
 
-    private bool AiAvailable => _settings.Enabled && _ai is not null;
+    private AiProvider? FindProvider(string? mode) => mode == ChatModes.Ai
+        ? _settings.Providers.FirstOrDefault()
+        : _settings.Providers.FirstOrDefault(p => p.Id == mode);
 
     private string EffectiveDefault() =>
         ChatModes.TryParse(_configuration[DefaultModeSettingName], out var configured)
-        && configured == ChatModes.Ai
-        && AiAvailable
-            ? ChatModes.Ai
+            ? FindProvider(configured)?.Id ?? ChatModes.Guided
             : ChatModes.Guided;
 
     private async Task<OrchestratedReply> GuidedAsync(string message, string? notice, CancellationToken cancellationToken)

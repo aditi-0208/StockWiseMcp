@@ -16,8 +16,8 @@ public sealed class ChatRequest
     public string? Message { get; set; }
 
     /// <summary>
-    /// Optional. "guided" (Guided Demo, the default) or "ai" (AI Assistant, if configured on the server).
-    /// If "ai" is requested but unavailable, Guided Demo answers and the response explains why in "notice".
+    /// Optional. "guided" (Guided Demo, the default), "gemini", "openai", or "ai" (the first configured AI provider).
+    /// If an AI mode is requested but unavailable, Guided Demo answers and the response explains why in "notice".
     /// </summary>
     public string? Mode { get; set; }
 }

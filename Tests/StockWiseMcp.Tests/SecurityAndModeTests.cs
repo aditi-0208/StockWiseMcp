@@ -114,7 +114,8 @@ public sealed class SecurityAndModeTests
         var json = await factory.CreateBrowserClient().GetStringAsync("/api/chat/modes");
 
         Assert.Contains("\"guided\"", json);
-        Assert.Matches("\"id\":\"ai\",\"name\":\"AI Assistant\",\"available\":false", json);
+        Assert.Contains("\"id\":\"gemini\",\"name\":\"AI Assistant (Gemini)\",\"available\":false", json);
+        Assert.Contains("\"id\":\"openai\",\"name\":\"AI Assistant (OpenAI)\",\"available\":false", json);
     }
 
     [Fact]
@@ -151,7 +152,7 @@ public sealed class SecurityAndModeTests
 
         using var document = System.Text.Json.JsonDocument.Parse(json);
         var ai = document.RootElement.GetProperty("modes").EnumerateArray()
-            .Single(m => m.GetProperty("id").GetString() == "ai");
+            .Single(m => m.GetProperty("id").GetString() == "gemini");
 
         Assert.Equal(expected, ai.GetProperty("available").GetBoolean());
     }
