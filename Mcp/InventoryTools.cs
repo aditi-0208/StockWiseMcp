@@ -112,18 +112,23 @@ public sealed class InventoryTools
     [McpServerTool(Name = "rank_products_by_value", ReadOnly = true)]
     [Description(
         "Rank products by the retail value of the stock currently on hand (unit price x quantity " +
-        "in stock), highest first. Returns each product with its inventory value in US dollars. " +
-        "Use this for questions like 'which products tie up the most money?' or 'what are our " +
-        "top 5 products by inventory value?'. This ranks individual products, not categories.")]
+        "in stock). Returns each product with its inventory value in US dollars. By default the " +
+        "HIGHEST value products are returned first; set highestFirst to false for the LOWEST value " +
+        "products first. Use this for questions like 'which products tie up the most money?', " +
+        "'top 5 products by inventory value' or 'which products have the lowest inventory value?'. " +
+        "This ranks individual products, not categories.")]
     public async Task<IReadOnlyList<ProductInfo>> RankProductsByValue(
-        [Description("How many top products to return, from 1 to 10. Defaults to 5. " +
+        [Description("How many products to return, from 1 to 10. Defaults to 5. " +
                      "Values outside the range are adjusted to fit.")]
         int count = DefaultRankingCount,
+        [Description("True (the default) returns the highest-value products first; " +
+                     "false returns the lowest-value products first.")]
+        bool highestFirst = true,
         CancellationToken cancellationToken = default)
     {
         var clampedCount = Math.Clamp(count, MinRankingCount, MaxRankingCount);
 
-        var products = await _repository.TopByValueAsync(clampedCount, cancellationToken);
+        var products = await _repository.TopByValueAsync(clampedCount, cancellationToken, descending: highestFirst);
 
         return products.Select(ProductInfo.From).ToList();
     }

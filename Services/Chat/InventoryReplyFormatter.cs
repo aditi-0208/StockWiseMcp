@@ -43,7 +43,7 @@ public static class InventoryReplyFormatter
                 arguments.GetValueOrDefault("searchText") as string,
                 arguments.GetValueOrDefault("maxPrice") as decimal?),
             GuidedDemoTools.GetInventorySummary => FormatSummary(data),
-            GuidedDemoTools.RankProductsByValue => FormatRanking(data),
+            GuidedDemoTools.RankProductsByValue => FormatRanking(data, HighestFirst(arguments)),
             GuidedDemoTools.GetLowStockProducts => FormatLowStock(
                 data,
                 arguments.GetValueOrDefault("onlyOutOfStock") is true,
@@ -243,7 +243,17 @@ public static class InventoryReplyFormatter
                (low == 0 ? string.Empty : " Ask \"which products need reordering?\" to see the list.");
     }
 
-    public static string FormatRanking(JsonElement products)
+    /// <summary>Reads the rank direction from the tool arguments; defaults to highest-value first.</summary>
+    private static bool HighestFirst(IReadOnlyDictionary<string, object?> arguments) =>
+        arguments.GetValueOrDefault("highestFirst") switch
+        {
+            false => false,
+            bool b => b,
+            JsonElement { ValueKind: JsonValueKind.False } => false,
+            _ => true
+        };
+
+    public static string FormatRanking(JsonElement products, bool highestFirst = true)
     {
         var items = products.ValueKind == JsonValueKind.Array ? products.EnumerateArray().ToList() : [];
         if (items.Count == 0)
@@ -251,8 +261,9 @@ public static class InventoryReplyFormatter
             return "There are no products in the inventory to rank.";
         }
 
+        var ordering = highestFirst ? "top" : "lowest";
         var builder = new StringBuilder();
-        builder.AppendLine($"Here are the top {items.Count} products by value of stock on hand (price x quantity):");
+        builder.AppendLine($"Here are the {ordering} {items.Count} products by value of stock on hand (price x quantity):");
 
         for (var i = 0; i < items.Count; i++)
         {
