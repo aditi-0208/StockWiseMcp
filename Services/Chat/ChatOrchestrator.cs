@@ -93,13 +93,27 @@ public sealed class ChatOrchestrator
         }
         catch (AiUnavailableException ex)
         {
-            _logger.LogWarning("AI mode could not answer ({Reason}); falling back to Guided Demo.", ex.Message);
-            return await GuidedAsync(
-                message,
-                "The AI assistant couldn't answer just now, so Guided Demo mode answered instead.",
-                cancellationToken);
+            _logger.LogWarning("AI mode could not answer ({Category}: {Reason}); falling back to Guided Demo.",
+                ex.Category, ex.Message);
+            return await GuidedAsync(message, NoticeFor(ex.Category), cancellationToken);
         }
     }
+
+    /// <summary>
+    /// The message shown when AI mode fell back to Guided Demo. It explains the cause when that is safe,
+    /// but never reveals authentication or configuration problems (those stay the general wording).
+    /// </summary>
+    private static string NoticeFor(AiUnavailableReason reason) => reason switch
+    {
+        AiUnavailableReason.Busy =>
+            "The AI service is busy right now, so Guided Demo mode answered instead. Please try again in a moment.",
+        AiUnavailableReason.Timeout =>
+            "The AI assistant took too long to respond, so Guided Demo mode answered instead.",
+        AiUnavailableReason.NotGrounded =>
+            "The AI assistant couldn't ground its answer in the inventory data, so Guided Demo mode answered instead.",
+        _ =>
+            "The AI assistant couldn't answer just now, so Guided Demo mode answered instead.",
+    };
 
     private AiProvider? FindProvider(string? mode) => mode == ChatModes.Ai
         ? _settings.Providers.FirstOrDefault()
