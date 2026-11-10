@@ -100,6 +100,7 @@ public sealed class StockWiseFactory : WebApplicationFactory<Program>
 
         // Make sure no developer key on this machine leaks into the tests.
         builder.UseSetting("OpenAI:ApiKey", "");
+        builder.UseSetting("Gemini:ApiKey", "");
         foreach (var (key, value) in _settings)
         {
             builder.UseSetting(key, value);

@@ -141,6 +141,21 @@ public sealed class SecurityAndModeTests
         Assert.Contains("isn't set up", reply.GetProperty("notice").GetString());
     }
 
+    [Theory]
+    [InlineData("AIza-test-0123456789abcdefghij", true)]
+    [InlineData("your-gemini-key-here", false)]
+    public async Task Ai_GeminiKey_ControlsWhetherAiModeIsAvailable(string key, bool expected)
+    {
+        using var factory = new StockWiseFactory(settings: new() { ["Gemini:ApiKey"] = key });
+        var json = await factory.CreateBrowserClient().GetStringAsync("/api/chat/modes");
+
+        using var document = System.Text.Json.JsonDocument.Parse(json);
+        var ai = document.RootElement.GetProperty("modes").EnumerateArray()
+            .Single(m => m.GetProperty("id").GetString() == "ai");
+
+        Assert.Equal(expected, ai.GetProperty("available").GetBoolean());
+    }
+
     [Fact]
     public async Task Ai_ProviderUnreachable_FallsBackToGuidedDemo_WithNotice()
     {

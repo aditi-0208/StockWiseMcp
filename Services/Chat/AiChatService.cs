@@ -21,7 +21,8 @@ public sealed class AiUnavailableException : Exception
 /// </summary>
 public sealed class AiChatService : IChatService
 {
-    private const int MaxOutputTokens = 500;
+    // Roomy because Gemini's thinking may use part of this limit; the visible reply is still one short sentence.
+    private const int MaxOutputTokens = 2048;
     private const int MaxRenderedResults = 3;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
 

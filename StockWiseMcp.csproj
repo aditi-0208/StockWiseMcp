@@ -1,9 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>d31fa614-358a-4169-8597-0c5663e05b21</UserSecretsId>
   </PropertyGroup>
 
   <!-- The test project lives inside this folder; keep its files out of the web app's build. -->
